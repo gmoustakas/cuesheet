@@ -74,8 +74,11 @@ async def test_watcher_ignores_non_cassette_yaml(tmp_path: Path) -> None:
         # Not under cassette(s)/ and not named test_*
         unrelated = tmp_path / "random.yaml"
         unrelated.write_text("foo: bar\n")
-        # Give the watcher a chance to fire (it shouldn't)
-        with pytest.raises(TimeoutError):
+        # Give the watcher a chance to fire (it shouldn't). On Python 3.10
+        # asyncio.wait_for raises asyncio.TimeoutError, which is distinct from
+        # the builtin TimeoutError; on 3.11+ they're the same class. Match
+        # asyncio.TimeoutError to cover both.
+        with pytest.raises(asyncio.TimeoutError):
             await asyncio.wait_for(q.get(), timeout=1.0)
     finally:
         watcher.unsubscribe(q)
