@@ -236,14 +236,14 @@ encore works with anything that calls an LLM provider over `httpx`. That include
 ## Comparison
 
 |                                | vcr.py | pytest-vcr | RESPX | **encore** |
-|---|---|---|---|---|
-| HTTP-level                     | yes | yes | yes | yes |
-| LLM-payload aware              | no  | no  | no  | yes |
-| Streaming response replay      | partial | partial | no | yes |
-| Provider-agnostic              | yes | yes | yes | yes |
-| Auto API-key scrubbing         | manual | manual | no | yes |
-| pytest plugin                  | manual | yes | no | yes |
-| Web UI with live updates       | no | no | no | yes |
+|---|:---:|:---:|:---:|:---:|
+| HTTP-level                     | ✅ | ✅ | ✅ | ✅ |
+| LLM-payload aware              | ❌ | ❌ | ❌ | ✅ |
+| Streaming response replay      | ⚠️ partial | ⚠️ partial | ❌ | ✅ |
+| Provider-agnostic              | ✅ | ✅ | ✅ | ✅ |
+| Auto API-key scrubbing         | ⚠️ manual  | ⚠️ manual  | ❌ | ✅ |
+| pytest plugin                  | ⚠️ manual  | ✅ | ❌ | ✅ |
+| Web UI with live updates       | ❌ | ❌ | ❌ | ✅ |
 
 ## Publishing to PyPI (for maintainers)
 
