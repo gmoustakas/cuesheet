@@ -58,7 +58,9 @@ encore intercepts the underlying `httpx` transport that Anthropic, OpenAI, Mistr
 ## Install
 
 ```bash
-pip install encore
+pip install encore               # SDK + CLI
+pip install "encore[web]"        # + local web UI
+pip install "encore[all]"        # everything
 ```
 
 ## Common patterns
@@ -149,9 +151,24 @@ encore.add_scrubber(r"INTERNAL-[A-Z0-9]{16}")
 ```bash
 encore list                          # all cassettes in cwd
 encore inspect tests/cassettes/x.yaml # pretty-print one cassette
-encore stats                          # cost saved this week
+encore stats                          # interaction + size totals
 encore scrub tests/cassettes/        # re-apply scrubbers in place
+encore web                           # open the local web UI
 ```
+
+## Web UI
+
+```bash
+encore web                           # opens http://127.0.0.1:8095
+```
+
+Dark + ochre, mobile-responsive, zero auth. Pages:
+
+- **Index** — sortable table of every cassette: path, providers, interaction count, size, last modified.
+- **Cassette detail** — click any row. Per-interaction inspector with request/response panes, syntax-highlighted JSON, expandable headers, stream-chunk inspector.
+- **JSON API** — `/api/cassettes`, `/api/cassettes/_detail`, `/api/stats` for tooling.
+
+Designed to be useful in two workflows: code-review (browse what got recorded) and debugging (open one cassette, find the offending interaction, see the raw response). No daemon, no persistence — just renders the files on disk.
 
 ## Comparison
 

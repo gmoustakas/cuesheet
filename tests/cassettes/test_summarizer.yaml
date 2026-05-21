@@ -1,0 +1,38 @@
+interactions:
+- duration_ms: null
+  id: a1
+  recorded_at: '2026-05-21T13:39:37.962713Z'
+  request:
+    body:
+      max_tokens: 200
+      messages:
+      - content: 'Summarize: TCP slow-start is a congestion control algorithm...'
+        role: user
+      model: claude-sonnet-4-5
+    body_raw: null
+    headers:
+      anthropic-version: '2023-06-01'
+      content-type: application/json
+    method: POST
+    url: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      content:
+      - text: TCP slow-start gradually increases the congestion window after a connection is 
+          established to probe available bandwidth.
+        type: text
+      id: msg_01
+      model: claude-sonnet-4-5
+      role: assistant
+      stop_reason: end_turn
+      type: message
+      usage:
+        input_tokens: 28
+        output_tokens: 22
+    body_raw: null
+    body_stream: null
+    headers:
+      content-type: application/json
+    is_streaming: false
+    status_code: 200
+version: 1

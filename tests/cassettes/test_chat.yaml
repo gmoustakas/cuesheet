@@ -1,0 +1,69 @@
+interactions:
+- duration_ms: null
+  id: o1
+  recorded_at: '2026-05-21T13:39:37.965954Z'
+  request:
+    body:
+      messages:
+      - content: You are a terse assistant.
+        role: system
+      - content: How does TCP slow-start work?
+        role: user
+      model: gpt-4o-mini
+      temperature: 0.0
+    body_raw: null
+    headers:
+      content-type: application/json
+    method: POST
+    url: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      choices:
+      - finish_reason: stop
+        index: 0
+        message:
+          content: TCP slow-start exponentially increases cwnd until the slow-start threshold is 
+            reached.
+          role: assistant
+      id: chatcmpl_test
+      usage:
+        completion_tokens: 16
+        prompt_tokens: 18
+        total_tokens: 34
+    body_raw: null
+    body_stream: null
+    headers:
+      content-type: application/json
+    is_streaming: false
+    status_code: 200
+- duration_ms: 820.5
+  id: o2
+  recorded_at: '2026-05-21T13:39:37.965962Z'
+  request:
+    body:
+      messages:
+      - content: Define cwnd
+        role: user
+      model: gpt-4o
+    body_raw: null
+    headers:
+      content-type: application/json
+    method: POST
+    url: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      choices:
+      - message:
+          content: Congestion window - sender-side limit on unacknowledged data.
+          role: assistant
+      id: chatcmpl_test2
+      usage:
+        completion_tokens: 12
+        prompt_tokens: 4
+    body_raw: null
+    body_stream: null
+    headers:
+      content-type: application/json
+    is_streaming: false
+    status_code: 200
+version: 1

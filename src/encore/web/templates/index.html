@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}cassettes · encore{% endblock %}
+
+{% block content %}
+<section class="cassettes-page">
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">/ cassettes</div>
+      <h1 class="page-title">{{ total }} cassette{{ 's' if total != 1 else '' }}</h1>
+    </div>
+    <form class="search-form" method="get" action="/">
+      <input type="search" name="search" value="{{ search }}"
+             placeholder="search by path, provider..." autocomplete="off" autofocus>
+      {% if search %}<a href="/" class="search-clear" title="Clear">×</a>{% endif %}
+    </form>
+  </div>
+
+  {% if cassettes %}
+    <div class="cassette-table-wrap">
+      <table class="cassette-table">
+        <thead>
+          <tr>
+            <th>path</th>
+            <th>providers</th>
+            <th class="num">interactions</th>
+            <th class="num">size</th>
+            <th>modified</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in cassettes %}
+          <tr class="cassette-row" onclick="window.location.href='/cassette?path={{ c.rel|urlencode }}'">
+            <td class="cassette-path mono">{{ c.rel }}</td>
+            <td>
+              {% for p in c.providers %}<span class="provider-pill">{{ p }}</span>{% endfor %}
+              {% if not c.providers %}<span class="dim mono">—</span>{% endif %}
+            </td>
+            <td class="num mono">{{ c.interactions }}</td>
+            <td class="num mono dim">{{ c.size | bytes_human }}</td>
+            <td class="dim">{{ c.modified | since }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">♪</div>
+      {% if search %}
+        <p>No cassettes match <span class="mono">"{{ search }}"</span></p>
+        <p class="dim">Try a shorter query, or <a href="/">clear the search</a>.</p>
+      {% else %}
+        <p>No cassettes recorded yet under <span class="mono">{{ root }}</span></p>
+        <p class="dim">Record one by wrapping your LLM-calling code with <span class="mono">@encore.cassette(...)</span>.</p>
+        <pre class="snippet"><span class="snippet-comment"># tests/test_summarizer.py</span>
+import encore
+
+@encore.cassette("tests/cassettes/test_summarizer.yaml")
+def test_summarizer():
+    from anthropic import Anthropic
+    client = Anthropic()
+    r = client.messages.create(
+        model="claude-sonnet-4-5",
+        messages=[{"role": "user", "content": "..."}],
+    )
+    assert "key point" in r.content[0].text</pre>
+        <p class="dim">First run hits the real API; every run after replays from the YAML.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

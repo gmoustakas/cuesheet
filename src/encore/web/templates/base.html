@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}encore{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.7/dist/cdn.min.js" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <a href="/" class="brand-link">
+        <span class="brand-mark">♪</span>
+        <span class="brand-name">encore</span>
+      </a>
+      <span class="brand-version">v{{ version }}</span>
+    </div>
+    <nav class="header-nav">
+      <a href="/api/docs" class="nav-link">api</a>
+      <a href="https://github.com/gmoustakas/encore" class="nav-link">github ↗</a>
+    </nav>
+  </header>
+
+  <main class="app-main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="app-footer">
+    <span class="footer-mono">{{ root }}</span>
+    <span class="footer-mono">encore · replay LLM API calls in tests · local</span>
+  </footer>
+</body>
+</html>
