@@ -2,7 +2,7 @@
 
 Why httpx: every modern Python LLM SDK (anthropic, openai, mistralai,
 google-generativeai, litellm, ...) is built on top of httpx. Hooking at
-the transport layer makes encore provider-agnostic.
+the transport layer makes cuesheet provider-agnostic.
 
 Design choice: we WRAP whatever transport the user gives us rather than
 subclassing httpx.HTTPTransport. This means:
@@ -28,19 +28,19 @@ from typing import Any
 
 import httpx
 
-from encore.cassette import (
+from cuesheet.cassette import (
     Interaction,
     RecordedRequest,
     RecordedResponse,
     decode_body,
     encode_body,
 )
-from encore.session import (
+from cuesheet.session import (
     CassetteMissingMatch,
     current,
 )
 
-logger = logging.getLogger("encore.transport")
+logger = logging.getLogger("cuesheet.transport")
 
 
 # LLM hosts we intercept. Other traffic passes through untouched so this
@@ -54,9 +54,9 @@ _INTERCEPT_HOSTS = (
     "api.cohere.ai",
     "api.deepseek.com",
     "api.together.xyz",
-    # Local test servers, useful for tests that want encore to engage:
+    # Local test servers, useful for tests that want cuesheet to engage:
     "kymo.test",
-    "encore.test",
+    "cuesheet.test",
 )
 
 
@@ -72,7 +72,7 @@ def _should_intercept(url: httpx.URL) -> bool:
 # ──────────────────────────────────────────────────────────────────────
 
 
-class EncoreTransport(httpx.BaseTransport):
+class CuesheetTransport(httpx.BaseTransport):
     """Wraps an inner transport. Routes through the active Session."""
 
     def __init__(self, inner: httpx.BaseTransport | None = None) -> None:
@@ -106,7 +106,7 @@ class EncoreTransport(httpx.BaseTransport):
         self._inner.close()
 
 
-class EncoreAsyncTransport(httpx.AsyncBaseTransport):
+class CuesheetAsyncTransport(httpx.AsyncBaseTransport):
     def __init__(self, inner: httpx.AsyncBaseTransport | None = None) -> None:
         self._inner = inner or httpx.AsyncHTTPTransport()
 
@@ -149,11 +149,11 @@ _installed = False
 
 def install() -> None:
     """Globally replace httpx Client constructors so they auto-wrap their
-    transport with EncoreTransport. Safe to call multiple times.
+    transport with CuesheetTransport. Safe to call multiple times.
 
     If the caller passes their own `transport=` (e.g. an httpx.MockTransport
     in tests), we WRAP that transport rather than replace it. This means the
-    test author keeps their fake backend while encore's session logic still
+    test author keeps their fake backend while cuesheet's session logic still
     intercepts in front.
     """
     global _installed
@@ -162,12 +162,12 @@ def install() -> None:
 
     def patched_client_init(self: httpx.Client, *args: Any, **kwargs: Any) -> None:
         user_transport = kwargs.pop("transport", None)
-        kwargs["transport"] = EncoreTransport(inner=user_transport)
+        kwargs["transport"] = CuesheetTransport(inner=user_transport)
         _orig_client_init(self, *args, **kwargs)
 
     def patched_async_client_init(self: httpx.AsyncClient, *args: Any, **kwargs: Any) -> None:
         user_transport = kwargs.pop("transport", None)
-        kwargs["transport"] = EncoreAsyncTransport(inner=user_transport)
+        kwargs["transport"] = CuesheetAsyncTransport(inner=user_transport)
         _orig_async_client_init(self, *args, **kwargs)
 
     httpx.Client.__init__ = patched_client_init  # type: ignore[method-assign,assignment]

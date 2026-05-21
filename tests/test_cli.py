@@ -5,14 +5,14 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from encore.cassette import (
+from cuesheet.cassette import (
     CassetteFile,
     Interaction,
     RecordedRequest,
     RecordedResponse,
     save_cassette,
 )
-from encore.cli import main
+from cuesheet.cli import main
 
 
 def _seed_cassette(tmp_path: Path, name: str = "test_x.yaml") -> Path:

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ rel_path }} · encore{% endblock %}
+{% block title %}{{ rel_path }} · cuesheet{% endblock %}
 
 {% block content %}
 <section class="cassette-page">
@@ -13,7 +13,7 @@
   {# This whole region re-fetches when the cassette file changes. #}
   <div id="cassette-region"
        hx-get="/partials/cassette?path={{ rel_path | urlencode }}"
-       hx-trigger="encore:cassette_changed from:window delay:200ms"
+       hx-trigger="cuesheet:cassette_changed from:window delay:200ms"
        hx-swap="innerHTML">
     {% include "_cassette_body.html" %}
   </div>

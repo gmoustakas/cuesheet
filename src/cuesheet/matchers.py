@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from encore.cassette import Interaction, RecordedRequest
+from cuesheet.cassette import Interaction, RecordedRequest
 
 Matcher = Callable[[RecordedRequest, RecordedRequest], bool]
 

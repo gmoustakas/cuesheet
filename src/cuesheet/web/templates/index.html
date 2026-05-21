@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}cassettes · encore{% endblock %}
+{% block title %}cassettes · cuesheet{% endblock %}
 
 {% block content %}
 <section class="cassettes-page">
@@ -21,7 +21,7 @@
   {# This block re-fetches itself via HTMX whenever a cassette_changed SSE event fires. #}
   <div id="cassette-table-region"
        hx-get="/partials/index_table?search={{ search | urlencode }}"
-       hx-trigger="encore:cassette_changed from:window delay:200ms"
+       hx-trigger="cuesheet:cassette_changed from:window delay:200ms"
        hx-swap="innerHTML">
     {% include "_index_table.html" %}
   </div>

@@ -1,10 +1,10 @@
-"""encore CLI.
+"""cuesheet CLI.
 
-  encore list                   # find cassettes under cwd
-  encore inspect <path>         # render a cassette in the terminal
-  encore stats                  # aggregate cost / interaction counts
-  encore scrub <path>           # re-apply scrubbers in place
-  encore web                    # serve the local dashboard
+  cuesheet list                   # find cassettes under cwd
+  cuesheet inspect <path>         # render a cassette in the terminal
+  cuesheet stats                  # aggregate cost / interaction counts
+  cuesheet scrub <path>           # re-apply scrubbers in place
+  cuesheet web                    # serve the local dashboard
 """
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from encore._version import __version__
-from encore.cassette import (
+from cuesheet._version import __version__
+from cuesheet.cassette import (
     load_cassette,
     save_cassette,
 )
@@ -26,9 +26,9 @@ console = Console(width=max(120, Console().size.width))
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
-@click.version_option(__version__, prog_name="encore")
+@click.version_option(__version__, prog_name="cuesheet")
 def main() -> None:
-    """encore - replay LLM API calls in tests."""
+    """cuesheet - replay LLM API calls in tests."""
 
 
 @main.command("list")
@@ -164,14 +164,14 @@ def cmd_web(root: Path, host: str, port: int, no_open: bool, reload: bool) -> No
         import uvicorn
     except ImportError as e:
         console.print(
-            "[red]encore[web] is not installed.[/red]\n"
-            "  [dim]pip install 'encore[web]'[/dim]"
+            "[red]cuesheet[web] is not installed.[/red]\n"
+            "  [dim]pip install 'cuesheet[web]'[/dim]"
         )
         raise click.exceptions.Exit(1) from e
 
     root = root.resolve()
     url = f"http://{host}:{port}"
-    console.print(f"[bold]encore web[/bold]  [dim]{url}[/dim]  [yellow]watching[/yellow] {root}")
+    console.print(f"[bold]cuesheet web[/bold]  [dim]{url}[/dim]  [yellow]watching[/yellow] {root}")
 
     if not no_open:
         import contextlib
@@ -186,12 +186,12 @@ def cmd_web(root: Path, host: str, port: int, no_open: bool, reload: bool) -> No
 
         threading.Thread(target=open_browser, daemon=True).start()
 
-    # We pass the root via env var so the factory in encore.web.app can read it.
+    # We pass the root via env var so the factory in cuesheet.web.app can read it.
     import os
-    os.environ["ENCORE_WEB_ROOT"] = str(root)
+    os.environ["CUESHEET_WEB_ROOT"] = str(root)
 
     uvicorn.run(
-        "encore.web.app:_factory",
+        "cuesheet.web.app:_factory",
         factory=True,
         host=host,
         port=port,

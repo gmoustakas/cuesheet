@@ -15,7 +15,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 from ruamel.yaml import YAML
 
-from encore.scrubbers import scrub_headers, scrub_obj, scrub_string
+from cuesheet.scrubbers import scrub_headers, scrub_obj, scrub_string
 
 CASSETTE_VERSION = 1
 

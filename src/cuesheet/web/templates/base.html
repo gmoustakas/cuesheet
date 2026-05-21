@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}encore{% endblock %}</title>
+  <title>{% block title %}cuesheet{% endblock %}</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="icon" type="image/png" sizes="64x64" href="/static/favicon.png">
   <link rel="stylesheet" href="/static/app.css">
@@ -15,7 +15,7 @@
     <div class="brand">
       <a href="/" class="brand-link">
         <img src="/static/brand.png" alt="" class="brand-mark" width="32" height="32">
-        <span class="brand-name">encore</span>
+        <span class="brand-name">cuesheet</span>
       </a>
       <span class="brand-version">v{{ version }}</span>
       {% if live_enabled %}
@@ -25,7 +25,7 @@
       {% endif %}
     </div>
     <nav class="header-nav">
-      <a href="https://github.com/gmoustakas/encore" class="nav-link" rel="noopener" target="_blank">github ↗</a>
+      <a href="https://github.com/gmoustakas/cuesheet" class="nav-link" rel="noopener" target="_blank">github ↗</a>
     </nav>
   </header>
 
@@ -36,7 +36,7 @@
   <footer class="app-footer">
     <span class="footer-mono">{{ root }}</span>
     <span class="footer-mono">
-      encore · local · built by
+      cuesheet · local · built by
       <a href="https://www.georgemou.gr/" rel="noopener" target="_blank" class="footer-link">george moustakas</a>
     </span>
   </footer>
@@ -67,7 +67,7 @@
         flash();
         const data = JSON.parse(e.data);
         // Tell every htmx-listening element to refresh
-        window.dispatchEvent(new CustomEvent("encore:cassette_changed", { detail: data }));
+        window.dispatchEvent(new CustomEvent("cuesheet:cassette_changed", { detail: data }));
       });
 
       es.onerror = () => {

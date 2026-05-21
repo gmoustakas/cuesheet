@@ -36,11 +36,11 @@
       <p class="dim">Try a shorter query, or <a href="/">clear the search</a>.</p>
     {% else %}
       <p>No cassettes recorded yet under <span class="mono">{{ root or "this directory" }}</span></p>
-      <p class="dim">Record one by wrapping your LLM-calling code with <span class="mono">@encore.cassette(...)</span>.</p>
+      <p class="dim">Record one by wrapping your LLM-calling code with <span class="mono">@cuesheet.cassette(...)</span>.</p>
       <pre class="snippet"><span class="snippet-comment"># tests/test_summarizer.py</span>
-import encore
+import cuesheet
 
-@encore.cassette("tests/cassettes/test_summarizer.yaml")
+@cuesheet.cassette("tests/cassettes/test_summarizer.yaml")
 def test_summarizer():
     from anthropic import Anthropic
     client = Anthropic()

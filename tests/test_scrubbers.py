@@ -1,7 +1,7 @@
 """Scrubber tests."""
 from __future__ import annotations
 
-from encore.scrubbers import (
+from cuesheet.scrubbers import (
     add_scrubber,
     reset_scrubbers,
     scrub_headers,

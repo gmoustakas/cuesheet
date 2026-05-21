@@ -1,14 +1,14 @@
 <div align="center">
 
-<img src="docs/logo-256.png" alt="encore" width="180" height="180">
+<img src="docs/logo-256.png" alt="cuesheet" width="180" height="180">
 
-# encore
+# cuesheet
 
 **Record once. Replay forever. Test LLM-calling code without burning the API.**
 
-[![PyPI](https://img.shields.io/pypi/v/encore.svg)](https://pypi.org/project/encore/)
-[![Python](https://img.shields.io/pypi/pyversions/encore.svg)](https://pypi.org/project/encore/)
-[![CI](https://github.com/gmoustakas/encore/actions/workflows/ci.yml/badge.svg)](https://github.com/gmoustakas/encore/actions)
+[![PyPI](https://img.shields.io/pypi/v/cuesheet.svg)](https://pypi.org/project/cuesheet/)
+[![Python](https://img.shields.io/pypi/pyversions/cuesheet.svg)](https://pypi.org/project/cuesheet/)
+[![CI](https://github.com/gmoustakas/cuesheet/actions/workflows/ci.yml/badge.svg)](https://github.com/gmoustakas/cuesheet/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
@@ -25,16 +25,16 @@ If you've ever tried to write tests for code that calls an LLM, you know the dri
 
 So most teams settle for one of three bad options: skip the tests, mark them slow and skip them in CI, or write a brittle mock and pray.
 
-## What encore does
+## What cuesheet does
 
-`encore` is a test-fixture library for any Python LLM SDK that uses `httpx` under the hood (Anthropic, OpenAI, Mistral, Gemini, Cohere, Groq, DeepSeek, Together, LiteLLM, and anything else built on the standard transport).
+`cuesheet` is a test-fixture library for any Python LLM SDK that uses `httpx` under the hood (Anthropic, OpenAI, Mistral, Gemini, Cohere, Groq, DeepSeek, Together, LiteLLM, and anything else built on the standard transport).
 
-You wrap your test in `@encore.cassette(...)`. The first time it runs, encore hits the real API and saves the request/response pair to a YAML file you commit to your repo. Every run after that replays from the file. Same response, byte-for-byte. No network calls. No flakes. No cost.
+You wrap your test in `@cuesheet.cassette(...)`. The first time it runs, cuesheet hits the real API and saves the request/response pair to a YAML file you commit to your repo. Every run after that replays from the file. Same response, byte-for-byte. No network calls. No flakes. No cost.
 
 ```python
-import encore
+import cuesheet
 
-@encore.cassette("tests/cassettes/test_summarizer.yaml")
+@cuesheet.cassette("tests/cassettes/test_summarizer.yaml")
 def test_summarizer():
     from anthropic import Anthropic
     client = Anthropic()
@@ -52,15 +52,15 @@ That's the whole API. One decorator. One YAML file per test. Drop it in.
 
 ## Screenshots
 
-The library ships with a local web UI for browsing what got recorded. Run `encore web` and open `http://127.0.0.1:8095`.
+The library ships with a local web UI for browsing what got recorded. Run `cuesheet web` and open `http://127.0.0.1:8095`.
 
 **Index.** Sortable table of every cassette under your working directory. Provider, interaction count, file size, last modified. Click any row.
 
-![encore web - index page listing every cassette with provider and modified time](docs/screenshots/index.png)
+![cuesheet web - index page listing every cassette with provider and modified time](docs/screenshots/index.png)
 
 **Cassette detail.** Per-interaction inspector. Request and response side by side, JSON pretty-printed, headers collapsed by default, stream chunks expandable. The dashboard subscribes to filesystem events: rerun your tests in another terminal and this page updates live.
 
-![encore web - cassette detail with request and response panes, JSON visible](docs/screenshots/cassette-detail.png)
+![cuesheet web - cassette detail with request and response panes, JSON visible](docs/screenshots/cassette-detail.png)
 
 ## Features
 
@@ -77,9 +77,9 @@ The library ships with a local web UI for browsing what got recorded. Run `encor
 ## Install
 
 ```bash
-pip install encore               # SDK + CLI
-pip install "encore[web]"        # also installs the web UI
-pip install "encore[all]"        # everything
+pip install cuesheet               # SDK + CLI
+pip install "cuesheet[web]"        # also installs the web UI
+pip install "cuesheet[all]"        # everything
 ```
 
 Python 3.10+.
@@ -89,7 +89,7 @@ Python 3.10+.
 ### Decorator (simplest)
 
 ```python
-@encore.cassette("test_x.yaml")
+@cuesheet.cassette("test_x.yaml")
 def test_x():
     ...
 ```
@@ -97,14 +97,14 @@ def test_x():
 ### Context manager
 
 ```python
-with encore.cassette("my_run.yaml"):
+with cuesheet.cassette("my_run.yaml"):
     response = client.messages.create(...)
 ```
 
 ### pytest fixture (zero-config)
 
 ```python
-def test_my_agent(encore_cassette):
+def test_my_agent(cuesheet_cassette):
     # auto-uses tests/cassettes/test_my_agent.yaml
     ...
 ```
@@ -112,7 +112,7 @@ def test_my_agent(encore_cassette):
 ### CI: forbid recording, fail on missing cassettes
 
 ```python
-@encore.cassette("test_x.yaml", mode="replay_only")
+@cuesheet.cassette("test_x.yaml", mode="replay_only")
 def test_x():
     ...
 ```
@@ -120,7 +120,7 @@ def test_x():
 Or globally:
 
 ```bash
-ENCORE_DEFAULT_MODE=replay_only pytest
+CUESHEET_DEFAULT_MODE=replay_only pytest
 ```
 
 This is the mode you want in CI. It guarantees no test ever silently records a new cassette against the real API on the build server.
@@ -148,7 +148,7 @@ Two requests match if they're identical on:
 Override per cassette:
 
 ```python
-@encore.cassette("x.yaml", match_on=["method", "url", "model", "messages"])
+@cuesheet.cassette("x.yaml", match_on=["method", "url", "model", "messages"])
 def test_x():
     ...
 ```
@@ -156,7 +156,7 @@ def test_x():
 Or write a custom matcher:
 
 ```python
-@encore.matcher
+@cuesheet.matcher
 def ignore_user_id(req_a, req_b):
     a, b = req_a.body.copy(), req_b.body.copy()
     a.pop("user", None); b.pop("user", None)
@@ -165,7 +165,7 @@ def ignore_user_id(req_a, req_b):
 
 ## Secret scrubbing
 
-Cassettes get committed to your repo. Anything you didn't redact will end up on GitHub. `encore` strips API keys, JWTs, and emails before write. Built-in patterns:
+Cassettes get committed to your repo. Anything you didn't redact will end up on GitHub. `cuesheet` strips API keys, JWTs, and emails before write. Built-in patterns:
 
 - Anthropic keys (`sk-ant-...`)
 - OpenAI keys (`sk-...`, `sk-proj-...`)
@@ -176,7 +176,7 @@ Cassettes get committed to your repo. Anything you didn't redact will end up on 
 Add your own:
 
 ```python
-encore.add_scrubber(r"INTERNAL-[A-Z0-9]{16}")
+cuesheet.add_scrubber(r"INTERNAL-[A-Z0-9]{16}")
 ```
 
 If you find a secret pattern that should be in the default set, please open a PR.
@@ -184,24 +184,24 @@ If you find a secret pattern that should be in the default set, please open a PR
 ## CLI
 
 ```bash
-encore list                              # all cassettes in cwd
-encore inspect tests/cassettes/x.yaml    # pretty-print one cassette
-encore stats                             # interaction + size totals
-encore scrub tests/cassettes/            # re-apply scrubbers in place
-encore web                               # open the local web UI
+cuesheet list                              # all cassettes in cwd
+cuesheet inspect tests/cassettes/x.yaml    # pretty-print one cassette
+cuesheet stats                             # interaction + size totals
+cuesheet scrub tests/cassettes/            # re-apply scrubbers in place
+cuesheet web                               # open the local web UI
 ```
 
 ## Web UI
 
 ```bash
-encore web                               # opens http://127.0.0.1:8095
+cuesheet web                               # opens http://127.0.0.1:8095
 ```
 
 Dark plus ochre, mobile-responsive, zero auth. The dashboard watches the filesystem and pushes change events over SSE, so the index and cassette detail pages update in real time as your tests run in another terminal. The pulsing `live` pill in the header confirms the watcher is connected. No daemon, no persistence; it just renders the files on disk.
 
 ## Maturity
 
-encore is at v0.1.0. The public API (`encore.cassette`, `encore.matcher`, `encore.add_scrubber`) is stable; internals may shift between 0.x minors. The interception logic hooks at the `httpx` transport layer, not at the SDK layer, so it's provider-agnostic by construction. Each SDK has quirks though, so if yours misbehaves, please [file an issue](https://github.com/gmoustakas/encore/issues) with a minimal repro.
+cuesheet is at v0.1.0. The public API (`cuesheet.cassette`, `cuesheet.matcher`, `cuesheet.add_scrubber`) is stable; internals may shift between 0.x minors. The interception logic hooks at the `httpx` transport layer, not at the SDK layer, so it's provider-agnostic by construction. Each SDK has quirks though, so if yours misbehaves, please [file an issue](https://github.com/gmoustakas/cuesheet/issues) with a minimal repro.
 
 ## Supported providers
 
@@ -217,11 +217,11 @@ Any Python SDK that calls an LLM provider over `httpx` works. The providers belo
 - Together
 - LiteLLM (passes through to the underlying provider URL)
 
-If your provider isn't in the list, encore still records and replays it; you just won't get the coloured provider pill in the UI.
+If your provider isn't in the list, cuesheet still records and replays it; you just won't get the coloured provider pill in the UI.
 
 ## Comparison
 
-|                                | vcr.py | pytest-vcr | RESPX | **encore** |
+|                                | vcr.py | pytest-vcr | RESPX | **cuesheet** |
 |---|:---:|:---:|:---:|:---:|
 | HTTP-level                     | ✅ | ✅ | ✅ | ✅ |
 | LLM-payload aware              | ❌ | ❌ | ❌ | ✅ |

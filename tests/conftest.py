@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from encore.scrubbers import reset_scrubbers
-from encore.transport import is_installed, uninstall
+from cuesheet.scrubbers import reset_scrubbers
+from cuesheet.transport import is_installed, uninstall
 
 
 @pytest.fixture(autouse=True)

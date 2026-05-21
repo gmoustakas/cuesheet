@@ -5,7 +5,7 @@ those files. Apply a list of regex patterns to recorded requests + responses
 before writing.
 
 Defaults are conservative on purpose: every match is replaced with
-`<REDACTED>`. Users can extend the list with `encore.add_scrubber(r"...")`.
+`<REDACTED>`. Users can extend the list with `cuesheet.add_scrubber(r"...")`.
 """
 from __future__ import annotations
 

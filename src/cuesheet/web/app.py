@@ -1,4 +1,4 @@
-"""FastAPI app for `encore web`.
+"""FastAPI app for `cuesheet web`.
 
 Local-first browser for cassette files: list, inspect, watch live.
 
@@ -31,11 +31,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sse_starlette.sse import EventSourceResponse
 
-from encore._version import __version__
-from encore.cassette import CassetteFile, Interaction, load_cassette
-from encore.web.watcher import LiveWatcher
+from cuesheet._version import __version__
+from cuesheet.cassette import CassetteFile, Interaction, load_cassette
+from cuesheet.web.watcher import LiveWatcher
 
-logger = logging.getLogger("encore.web")
+logger = logging.getLogger("cuesheet.web")
 
 WEB_DIR = Path(__file__).parent
 TEMPLATES_DIR = WEB_DIR / "templates"
@@ -45,11 +45,11 @@ STATIC_DIR = WEB_DIR / "static"
 def _factory() -> FastAPI:
     """Uvicorn factory entry-point.
 
-    Reads ENCORE_WEB_ROOT (set by `encore web`) and falls back to cwd. The CLI
+    Reads CUESHEET_WEB_ROOT (set by `cuesheet web`) and falls back to cwd. The CLI
     needs this indirection because uvicorn's `factory=True` mode calls the
     factory with no arguments.
     """
-    raw = os.environ.get("ENCORE_WEB_ROOT")
+    raw = os.environ.get("CUESHEET_WEB_ROOT")
     root = Path(raw) if raw else Path.cwd()
     return build_app(root)
 
@@ -67,7 +67,7 @@ def build_app(root: Path | None = None) -> FastAPI:
             await watcher.stop()
 
     app = FastAPI(
-        title="encore",
+        title="cuesheet",
         version=__version__,
         lifespan=lifespan,
         docs_url="/api/docs",

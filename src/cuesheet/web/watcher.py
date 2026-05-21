@@ -20,13 +20,13 @@ from typing import Any
 
 from watchfiles import Change, awatch
 
-logger = logging.getLogger("encore.web.watcher")
+logger = logging.getLogger("cuesheet.web.watcher")
 
 
 def _is_cassette_path(path: str) -> bool:
     """Match anything that looks like a cassette: lives in a `cassette(s)/`
     directory, or its filename begins with `test_` (matching the convention
-    encore's pytest plugin uses for auto-discovered cassettes).
+    cuesheet's pytest plugin uses for auto-discovered cassettes).
 
     We inspect the parent directory names and the basename - never the full
     path string - so a pytest tmp dir like `/tmp/pytest-of-x/test_foo0/` does
@@ -52,7 +52,7 @@ _CHANGE_KIND = {
 
 
 class LiveWatcher:
-    """Single watcher per encore.web app. Owns one asyncio task and a fan-out
+    """Single watcher per cuesheet.web app. Owns one asyncio task and a fan-out
     of subscriber queues."""
 
     def __init__(self, root: Path, *, debounce_ms: int = 200) -> None:
@@ -69,7 +69,7 @@ class LiveWatcher:
         if self._task is not None:
             return
         self._stop_event = asyncio.Event()
-        self._task = asyncio.create_task(self._run(), name="encore-watcher")
+        self._task = asyncio.create_task(self._run(), name="cuesheet-watcher")
 
     async def stop(self) -> None:
         if self._task is None:

@@ -8,7 +8,7 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("jinja2")
 
-from encore.cassette import (
+from cuesheet.cassette import (
     CassetteFile,
     Interaction,
     RecordedRequest,
@@ -42,20 +42,20 @@ def _seed_cassette(tmp_path: Path, name: str = "test_x.yaml") -> Path:
 def test_index_empty(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     app = build_app(root=tmp_path)
     client = TestClient(app)
     r = client.get("/")
     assert r.status_code == 200
-    assert "encore" in r.text
+    assert "cuesheet" in r.text
     assert "No cassettes" in r.text
 
 
 def test_index_lists_cassette(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     _seed_cassette(tmp_path)
     app = build_app(root=tmp_path)
@@ -69,7 +69,7 @@ def test_index_lists_cassette(tmp_path: Path) -> None:
 def test_index_search(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     _seed_cassette(tmp_path, "test_foo.yaml")
     _seed_cassette(tmp_path, "test_bar.yaml")
@@ -84,7 +84,7 @@ def test_index_search(tmp_path: Path) -> None:
 def test_cassette_detail(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     _seed_cassette(tmp_path)
     app = build_app(root=tmp_path)
@@ -98,7 +98,7 @@ def test_cassette_detail(tmp_path: Path) -> None:
 def test_cassette_detail_404(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     app = build_app(root=tmp_path)
     client = TestClient(app)
@@ -109,7 +109,7 @@ def test_cassette_detail_404(tmp_path: Path) -> None:
 def test_path_traversal_blocked(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     app = build_app(root=tmp_path)
     client = TestClient(app)
@@ -123,7 +123,7 @@ def test_path_traversal_blocked(tmp_path: Path) -> None:
 def test_api_list(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     _seed_cassette(tmp_path)
     app = build_app(root=tmp_path)
@@ -138,7 +138,7 @@ def test_api_list(tmp_path: Path) -> None:
 def test_api_stats(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     _seed_cassette(tmp_path, "test_a.yaml")
     _seed_cassette(tmp_path, "test_b.yaml")
@@ -155,7 +155,7 @@ def test_api_stats(tmp_path: Path) -> None:
 def test_healthz(tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
 
-    from encore.web.app import build_app
+    from cuesheet.web.app import build_app
 
     app = build_app(root=tmp_path)
     client = TestClient(app)

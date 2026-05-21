@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "encore"
+name = "cuesheet"
 dynamic = ["version"]
 description = "Replay LLM API calls in tests. Zero cost. Zero flakes. Like vcr.py but for LLM SDKs."
 readme = "README.md"
@@ -71,26 +71,26 @@ dev = [
 ]
 
 [project.urls]
-Homepage      = "https://github.com/gmoustakas/encore"
-Documentation = "https://github.com/gmoustakas/encore#readme"
-Issues        = "https://github.com/gmoustakas/encore/issues"
-Changelog     = "https://github.com/gmoustakas/encore/blob/main/CHANGELOG.md"
+Homepage      = "https://github.com/gmoustakas/cuesheet"
+Documentation = "https://github.com/gmoustakas/cuesheet#readme"
+Issues        = "https://github.com/gmoustakas/cuesheet/issues"
+Changelog     = "https://github.com/gmoustakas/cuesheet/blob/main/CHANGELOG.md"
 
 [project.scripts]
-encore = "encore.cli:main"
+cuesheet = "cuesheet.cli:main"
 
 [project.entry-points."pytest11"]
-encore = "encore.pytest_plugin"
+cuesheet = "cuesheet.pytest_plugin"
 
 [tool.hatch.version]
-path = "src/encore/_version.py"
+path = "src/cuesheet/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/encore"]
+packages = ["src/cuesheet"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "src/encore",
+  "src/cuesheet",
   "tests",
   "examples",
   "README.md",
@@ -115,8 +115,8 @@ disallow_subclassing_any = false
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["encore.cli", "encore.pytest_plugin", "encore.transport",
-          "encore.matchers", "encore.api", "encore.web.*"]
+module = ["cuesheet.cli", "cuesheet.pytest_plugin", "cuesheet.transport",
+          "cuesheet.matchers", "cuesheet.api", "cuesheet.web.*"]
 strict = false
 disable_error_code = [
   "arg-type", "return-value", "misc", "dict-item",

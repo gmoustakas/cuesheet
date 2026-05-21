@@ -10,10 +10,10 @@ from contextvars import Token
 from pathlib import Path
 from typing import Any, TypeVar
 
-from encore.matchers import Matcher, default_matcher
-from encore.modes import Mode
-from encore.session import Session, _current, current
-from encore.transport import install as install_transport
+from cuesheet.matchers import Matcher, default_matcher
+from cuesheet.modes import Mode
+from cuesheet.session import Session, _current, current
+from cuesheet.transport import install as install_transport
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -21,7 +21,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 def _resolve_mode(explicit: str | Mode | None) -> Mode:
     if explicit is not None:
         return Mode(explicit) if isinstance(explicit, str) else explicit
-    from_env = os.environ.get("ENCORE_DEFAULT_MODE")
+    from_env = os.environ.get("CUESHEET_DEFAULT_MODE")
     if from_env:
         return Mode(from_env)
     return Mode.RECORD_NEW
@@ -44,11 +44,11 @@ def cassette(
 ) -> _CassetteContext:
     """Open a cassette - usable as both a decorator and a context manager.
 
-    >>> @encore.cassette("test.yaml")
+    >>> @cuesheet.cassette("test.yaml")
     ... def test_foo():
     ...     ...
 
-    >>> with encore.cassette("test.yaml"):
+    >>> with cuesheet.cassette("test.yaml"):
     ...     ...
     """
     return _CassetteContext(
@@ -111,7 +111,7 @@ class _CassetteContext:
             except Exception:
                 # Don't shadow user exception; log via the session's logger
                 import logging
-                logging.getLogger("encore").exception(
+                logging.getLogger("cuesheet").exception(
                     "failed to flush cassette %s on exit", session.path
                 )
         if self._token is not None:
@@ -153,7 +153,7 @@ class _CassetteContext:
 
 @contextmanager
 def disable() -> Iterator[None]:
-    """Temporarily route around encore in a section of code, even if a
+    """Temporarily route around cuesheet in a section of code, even if a
     cassette is active. Useful when you want one specific call to hit the
     real network.
     """

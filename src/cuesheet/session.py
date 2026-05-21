@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from encore.cassette import (
+from cuesheet.cassette import (
     CassetteFile,
     Interaction,
     RecordedRequest,
@@ -28,19 +28,19 @@ from encore.cassette import (
     load_cassette,
     save_cassette,
 )
-from encore.matchers import Matcher, default_matcher, find_match
-from encore.modes import Mode
+from cuesheet.matchers import Matcher, default_matcher, find_match
+from cuesheet.modes import Mode
 
 
-class EncoreError(Exception):
-    """Base class for encore exceptions."""
+class CuesheetError(Exception):
+    """Base class for cuesheet exceptions."""
 
 
-class CassetteMissingMatch(EncoreError):
+class CassetteMissingMatch(CuesheetError):
     """replay_only and no matching interaction in the cassette."""
 
 
-class CassetteWriteError(EncoreError):
+class CassetteWriteError(CuesheetError):
     pass
 
 
@@ -137,7 +137,7 @@ class Session:
 # ──────────────────────────────────────────────────────────────────────
 
 
-_current: ContextVar[Session | None] = ContextVar("encore_session", default=None)
+_current: ContextVar[Session | None] = ContextVar("cuesheet_session", default=None)
 
 
 def current() -> Session | None:

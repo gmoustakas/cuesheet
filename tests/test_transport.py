@@ -1,8 +1,8 @@
 """End-to-end transport tests using httpx.MockTransport as the inner layer.
 
-These tests exercise the full path: producer code → EncoreTransport →
+These tests exercise the full path: producer code → CuesheetTransport →
 inner mock → response captured → cassette written → on replay,
-EncoreTransport synthesizes from cassette and inner is never touched.
+CuesheetTransport synthesizes from cassette and inner is never touched.
 """
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from typing import Any
 import httpx
 import pytest
 
-import encore
-from encore.session import CassetteMissingMatch
+import cuesheet
+from cuesheet.session import CassetteMissingMatch
 
 
 def _mock_transport(handler) -> httpx.MockTransport:
@@ -38,7 +38,7 @@ def test_record_then_replay(tmp_path: Path) -> None:
     )
 
     # ── record ─────────────────────────────────────────────────────────
-    with encore.cassette(cassette_path):
+    with cuesheet.cassette(cassette_path):
         client = httpx.Client(transport=_mock_transport(handler))
         r = client.post(
             "https://api.anthropic.com/v1/messages",
@@ -52,7 +52,7 @@ def test_record_then_replay(tmp_path: Path) -> None:
     # ── replay (no inner handler reachable, but cassette satisfies) ───
     def blocked_handler(request: httpx.Request) -> httpx.Response:
         pytest.fail("inner transport should not be hit in replay_only mode")
-    with encore.cassette(cassette_path, mode="replay_only"):
+    with cuesheet.cassette(cassette_path, mode="replay_only"):
         client = httpx.Client(transport=_mock_transport(blocked_handler))
         r = client.post(
             "https://api.anthropic.com/v1/messages",
@@ -65,7 +65,7 @@ def test_record_then_replay(tmp_path: Path) -> None:
 def test_replay_only_fails_without_cassette(tmp_path: Path) -> None:
     cassette_path = tmp_path / "missing.yaml"
     handler = _anthropic_handler({"unused": True})
-    with encore.cassette(cassette_path, mode="replay_only"):
+    with cuesheet.cassette(cassette_path, mode="replay_only"):
         client = httpx.Client(transport=_mock_transport(handler))
         with pytest.raises(CassetteMissingMatch):
             client.post(
@@ -83,7 +83,7 @@ def test_non_intercepted_host_pass_through(tmp_path: Path) -> None:
         seen_calls.append(str(request.url))
         return httpx.Response(204)
 
-    with encore.cassette(tmp_path / "nothing.yaml", mode="replay_only"):
+    with cuesheet.cassette(tmp_path / "nothing.yaml", mode="replay_only"):
         client = httpx.Client(transport=_mock_transport(handler))
         r = client.get("https://example.com/x")
     assert r.status_code == 204
@@ -93,7 +93,7 @@ def test_non_intercepted_host_pass_through(tmp_path: Path) -> None:
 def test_bypass_mode_never_writes_cassette(tmp_path: Path) -> None:
     cassette_path = tmp_path / "bypass.yaml"
     handler = _anthropic_handler({"v": 1})
-    with encore.cassette(cassette_path, mode="bypass"):
+    with cuesheet.cassette(cassette_path, mode="bypass"):
         client = httpx.Client(transport=_mock_transport(handler))
         r = client.post(
             "https://api.anthropic.com/v1/messages",
@@ -108,19 +108,19 @@ def test_record_always_overwrites(tmp_path: Path) -> None:
     payload = {"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
 
     # First record version 1
-    with encore.cassette(cassette_path):
+    with cuesheet.cassette(cassette_path):
         client = httpx.Client(transport=_mock_transport(_anthropic_handler({"version": 1})))
         client.post("https://api.anthropic.com/v1/messages", json=payload)
 
     # Overwrite with version 2 via record_always
-    with encore.cassette(cassette_path, mode="record_always"):
+    with cuesheet.cassette(cassette_path, mode="record_always"):
         client = httpx.Client(transport=_mock_transport(_anthropic_handler({"version": 2})))
         client.post("https://api.anthropic.com/v1/messages", json=payload)
 
     # Replay should get version 2
     def blocked(request: httpx.Request) -> httpx.Response:
         pytest.fail("should not call inner")
-    with encore.cassette(cassette_path, mode="replay_only"):
+    with cuesheet.cassette(cassette_path, mode="replay_only"):
         client = httpx.Client(transport=_mock_transport(blocked))
         r = client.post("https://api.anthropic.com/v1/messages", json=payload)
         assert r.json()["version"] == 2
@@ -129,7 +129,7 @@ def test_record_always_overwrites(tmp_path: Path) -> None:
 def test_decorator_form(tmp_path: Path) -> None:
     cassette_path = tmp_path / "decorator.yaml"
 
-    @encore.cassette(cassette_path)
+    @cuesheet.cassette(cassette_path)
     def call_api(handler) -> dict[str, Any]:
         client = httpx.Client(transport=_mock_transport(handler))
         return client.post(
@@ -152,7 +152,7 @@ async def test_async_client(tmp_path: Path) -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"v": "async-recorded"})
 
-    with encore.cassette(cassette_path):
+    with cuesheet.cassette(cassette_path):
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             r = await client.post(
                 "https://api.anthropic.com/v1/messages",
@@ -163,7 +163,7 @@ async def test_async_client(tmp_path: Path) -> None:
     async def blocked(request: httpx.Request) -> httpx.Response:
         pytest.fail("should not call inner on replay")
 
-    with encore.cassette(cassette_path, mode="replay_only"):
+    with cuesheet.cassette(cassette_path, mode="replay_only"):
         async with httpx.AsyncClient(transport=httpx.MockTransport(blocked)) as client:
             r = await client.post(
                 "https://api.anthropic.com/v1/messages",
@@ -173,9 +173,9 @@ async def test_async_client(tmp_path: Path) -> None:
 
 
 def test_default_mode_from_env(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("ENCORE_DEFAULT_MODE", "replay_only")
+    monkeypatch.setenv("CUESHEET_DEFAULT_MODE", "replay_only")
     handler = _anthropic_handler({"unused": True})
-    with encore.cassette(tmp_path / "from_env.yaml"):
+    with cuesheet.cassette(tmp_path / "from_env.yaml"):
         client = httpx.Client(transport=_mock_transport(handler))
         with pytest.raises(CassetteMissingMatch):
             client.post(
@@ -185,14 +185,14 @@ def test_default_mode_from_env(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_disable_lets_inner_run_even_inside_cassette(tmp_path: Path) -> None:
-    """encore.disable() routes around the active session for one block."""
+    """cuesheet.disable() routes around the active session for one block."""
     seen: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(str(request.url))
         return httpx.Response(200, json={"hit": "inner"})
 
-    with encore.cassette(tmp_path / "x.yaml", mode="replay_only"), encore.disable():
+    with cuesheet.cassette(tmp_path / "x.yaml", mode="replay_only"), cuesheet.disable():
         client = httpx.Client(transport=_mock_transport(handler))
         r = client.post(
             "https://api.anthropic.com/v1/messages",

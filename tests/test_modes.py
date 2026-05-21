@@ -1,7 +1,7 @@
 """Mode behavior tests."""
 from __future__ import annotations
 
-from encore.modes import Mode
+from cuesheet.modes import Mode
 
 
 def test_default_mode() -> None:

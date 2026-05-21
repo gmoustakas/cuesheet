@@ -15,14 +15,14 @@ import pytest
 
 pytest.importorskip("watchfiles")
 
-from encore.cassette import (
+from cuesheet.cassette import (
     CassetteFile,
     Interaction,
     RecordedRequest,
     RecordedResponse,
     save_cassette,
 )
-from encore.web.watcher import LiveWatcher
+from cuesheet.web.watcher import LiveWatcher
 
 
 def _write_cassette(path: Path) -> None:

@@ -12,10 +12,10 @@ Run again with no API key: replays from the cassette.
 """
 from anthropic import Anthropic
 
-import encore
+import cuesheet
 
 
-@encore.cassette("examples/cassettes/basic.yaml")
+@cuesheet.cassette("examples/cassettes/basic.yaml")
 def main() -> None:
     client = Anthropic()
     response = client.messages.create(

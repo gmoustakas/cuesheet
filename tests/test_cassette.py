@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from encore.cassette import (
+from cuesheet.cassette import (
     CassetteFile,
     Interaction,
     RecordedRequest,

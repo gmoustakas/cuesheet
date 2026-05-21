@@ -1,8 +1,8 @@
 """Matcher tests."""
 from __future__ import annotations
 
-from encore.cassette import Interaction, RecordedRequest, RecordedResponse
-from encore.matchers import (
+from cuesheet.cassette import Interaction, RecordedRequest, RecordedResponse
+from cuesheet.matchers import (
     default_matcher,
     find_match,
     match_messages,
