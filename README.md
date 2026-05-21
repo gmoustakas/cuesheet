@@ -54,6 +54,7 @@ encore intercepts the underlying `httpx` transport that Anthropic, OpenAI, Mistr
 - ✅ Git-friendly YAML format
 - ✅ Auto-scrubs API keys, JWTs, emails before write
 - ✅ pytest plugin (zero-config fixtures)
+- ✅ Local web UI with live updates as tests record
 
 ## Install
 
@@ -164,11 +165,25 @@ encore web                           # opens http://127.0.0.1:8095
 
 Dark + ochre, mobile-responsive, zero auth. Pages:
 
-- **Index** — sortable table of every cassette: path, providers, interaction count, size, last modified.
-- **Cassette detail** — click any row. Per-interaction inspector with request/response panes, syntax-highlighted JSON, expandable headers, stream-chunk inspector.
-- **JSON API** — `/api/cassettes`, `/api/cassettes/_detail`, `/api/stats` for tooling.
+- **Index**: a sortable table of every cassette with path, providers, interaction count, size, last modified.
+- **Cassette detail**: click any row for a per-interaction inspector with request/response panes, syntax-highlighted JSON, expandable headers, and a stream-chunk view.
+- **JSON API**: `/api/cassettes`, `/api/cassettes/_detail`, `/api/stats` for tooling.
 
-Designed to be useful in two workflows: code-review (browse what got recorded) and debugging (open one cassette, find the offending interaction, see the raw response). No daemon, no persistence — just renders the files on disk.
+**Live updates.** Keep the UI open in one tab and run your tests in another. The dashboard subscribes to filesystem events via SSE and refreshes the affected section the moment a cassette gets recorded, modified, or deleted. The pulsing `• live` pill in the header confirms the watcher is connected.
+
+Designed to be useful in two workflows: code-review (browse what got recorded) and debugging (open one cassette, find the offending interaction, see the raw response). No daemon, no persistence. It just renders the files on disk.
+
+### Screenshots
+
+![Index page - every cassette with provider, count, modified time](docs/screenshots/index.png)
+![Cassette detail - request/response panes, expandable headers](docs/screenshots/cassette-detail.png)
+![Live updates - the dashboard refreshes the moment tests record a new cassette](docs/screenshots/live-update.png)
+
+### Custom logo
+
+The default brand mark is the Unicode music repeat-sign `𝄇` (semantic match for "play again"). If you want a graphical logo, here's an image-generation prompt that fits the brand:
+
+> A minimalist square logo for a Python library called `encore`. The mark sits on a near-black background (#07080c). The composition is a single ochre-yellow (#f4b942) glyph: a stylised music repeat-sign, two vertical lines with two dots, where the dots are subtly reinterpreted as tiny LED indicators. Flat, geometric, no gradients, no shadows. Confident, technical, intentional, in the visual language of a JetBrains plugin icon or a Vercel mark, not a children's app. 1024x1024 PNG, transparent edges acceptable.
 
 ## Comparison
 

@@ -1,0 +1,129 @@
+{# Cassette detail body. Standalone on /partials/cassette; embedded in
+   cassette.html for first paint. #}
+<div class="cassette-header">
+  <div class="cassette-header-left">
+    <div class="page-eyebrow">/ cassette</div>
+    <h1 class="cassette-title mono">{{ rel_path }}</h1>
+    <div class="cassette-meta">
+      <span class="dim mono">{{ abs_path }}</span>
+    </div>
+    {% if providers or models %}
+      <div class="provider-list">
+        {% for p in providers %}<span class="provider-pill {{ p }}">{{ p }}</span>{% endfor %}
+        {% for m in models[:6] %}<span class="model-pill mono">{{ m }}</span>{% endfor %}
+        {% if models|length > 6 %}<span class="dim mono">+{{ models|length - 6 }}</span>{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <dl class="cassette-stats">
+    <div>
+      <dt>interactions</dt>
+      <dd class="mono">{{ cassette.interactions | length }}</dd>
+    </div>
+    <div>
+      <dt>size</dt>
+      <dd class="mono">{{ size_bytes | bytes_human }}</dd>
+    </div>
+    <div>
+      <dt>modified</dt>
+      <dd class="mono">{{ modified_at | since }}</dd>
+    </div>
+  </dl>
+</div>
+
+{% if cassette.interactions %}
+  <h2 class="section-heading">Interactions</h2>
+  <ul class="interaction-list">
+  {% for i in cassette.interactions %}
+    {% set req = i.request %}
+    {% set resp = i.response %}
+    {% set body = req.body if req.body is mapping else {} %}
+    <li class="interaction" x-data="{ open: false }">
+      <button type="button" class="interaction-row" @click="open = !open">
+        <span class="toggle" x-text="open ? '▾' : '▸'">▸</span>
+        <span class="provider-pill {{ req.provider }}">{{ req.provider }}</span>
+        <span class="method mono">{{ req.method }}</span>
+        <span class="url mono">{{ req.url | short_url | truncate_chars(60) }}</span>
+        <span class="model-pill mono">{{ body.get('model', '-') }}</span>
+        <span class="status mono status-{{ 'ok' if resp.status_code < 400 else 'err' }}">
+          → {{ resp.status_code }}
+        </span>
+        {% if resp.is_streaming %}<span class="stream-pill">stream</span>{% endif %}
+      </button>
+
+      <div class="interaction-body" x-show="open" x-cloak>
+        <div class="iact-grid">
+          <section>
+            <h3 class="iact-side-heading">request</h3>
+            <div class="kv">
+              <span class="k">method</span>
+              <span class="v mono">{{ req.method }}</span>
+            </div>
+            <div class="kv">
+              <span class="k">url</span>
+              <span class="v mono">{{ req.url }}</span>
+            </div>
+            {% if body %}
+              <div class="kv kv-stack">
+                <span class="k">body</span>
+                <pre class="json">{{ body | json_pretty }}</pre>
+              </div>
+            {% elif req.body_raw %}
+              <div class="kv kv-stack">
+                <span class="k">body</span>
+                <pre class="json">{{ req.body_raw }}</pre>
+              </div>
+            {% endif %}
+            <details class="headers">
+              <summary>headers ({{ req.headers | length }})</summary>
+              <pre class="json">{{ req.headers | json_pretty }}</pre>
+            </details>
+          </section>
+
+          <section>
+            <h3 class="iact-side-heading">response</h3>
+            <div class="kv">
+              <span class="k">status</span>
+              <span class="v mono status-{{ 'ok' if resp.status_code < 400 else 'err' }}">{{ resp.status_code }}</span>
+            </div>
+            {% if i.duration_ms is not none %}
+              <div class="kv">
+                <span class="k">duration</span>
+                <span class="v mono">{{ "%.0f"|format(i.duration_ms) }}ms</span>
+              </div>
+            {% endif %}
+            {% if resp.body is mapping %}
+              <div class="kv kv-stack">
+                <span class="k">body</span>
+                <pre class="json">{{ resp.body | json_pretty }}</pre>
+              </div>
+            {% elif resp.body_raw %}
+              <div class="kv kv-stack">
+                <span class="k">body</span>
+                <pre class="json">{{ resp.body_raw }}</pre>
+              </div>
+            {% endif %}
+            {% if resp.is_streaming and resp.body_stream %}
+              <details class="stream">
+                <summary>stream chunks ({{ resp.body_stream | length }})</summary>
+                {% for chunk in resp.body_stream %}
+                  <pre class="stream-chunk">{{ chunk }}</pre>
+                {% endfor %}
+              </details>
+            {% endif %}
+            <details class="headers">
+              <summary>headers ({{ resp.headers | length }})</summary>
+              <pre class="json">{{ resp.headers | json_pretty }}</pre>
+            </details>
+          </section>
+        </div>
+      </div>
+    </li>
+  {% endfor %}
+  </ul>
+{% else %}
+  <div class="empty-state">
+    <p class="dim">This cassette is empty. No interactions recorded yet. The page will update automatically when something gets recorded.</p>
+  </div>
+{% endif %}

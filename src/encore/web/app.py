@@ -1,19 +1,26 @@
 """FastAPI app for `encore web`.
 
-Local-first browser for cassette files: list, inspect, diff. No network,
-no auth, no state outside the cassette files themselves.
+Local-first browser for cassette files: list, inspect, watch live.
 
 Routes:
   GET  /                       index (cassette table)
   GET  /cassette?path=...      detail view for one cassette
-  GET  /api/cassettes          JSON list (for tooling/AJAX)
+  GET  /partials/index_table   HTMX partial: table fragment (used by live refresh)
+  GET  /partials/cassette      HTMX partial: cassette detail fragment
+  GET  /events                 SSE: file-change events
+  GET  /api/cassettes          JSON list
   GET  /api/cassettes/_detail  JSON for one cassette
   GET  /api/stats              aggregate stats
-  GET  /healthz                health check
+  GET  /healthz                health check + watcher state
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
+import logging
+import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -22,25 +29,47 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sse_starlette.sse import EventSourceResponse
 
 from encore._version import __version__
 from encore.cassette import CassetteFile, Interaction, load_cassette
+from encore.web.watcher import LiveWatcher
+
+logger = logging.getLogger("encore.web")
 
 WEB_DIR = Path(__file__).parent
 TEMPLATES_DIR = WEB_DIR / "templates"
 STATIC_DIR = WEB_DIR / "static"
 
 
-def build_app(root: Path | None = None) -> FastAPI:
-    """Build the FastAPI app.
+def _factory() -> FastAPI:
+    """Uvicorn factory entry-point.
 
-    `root` is the directory we walk for *.yaml cassette files. Defaults to cwd.
+    Reads ENCORE_WEB_ROOT (set by `encore web`) and falls back to cwd. The CLI
+    needs this indirection because uvicorn's `factory=True` mode calls the
+    factory with no arguments.
     """
+    raw = os.environ.get("ENCORE_WEB_ROOT")
+    root = Path(raw) if raw else Path.cwd()
+    return build_app(root)
+
+
+def build_app(root: Path | None = None) -> FastAPI:
     root_path = (root or Path.cwd()).resolve()
+    watcher = LiveWatcher(root_path)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        await watcher.start()
+        try:
+            yield
+        finally:
+            await watcher.stop()
 
     app = FastAPI(
         title="encore",
         version=__version__,
+        lifespan=lifespan,
         docs_url="/api/docs",
         redoc_url=None,
     )
@@ -48,10 +77,14 @@ def build_app(root: Path | None = None) -> FastAPI:
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     templates.env.filters["short_path"] = lambda v: str(v)
     templates.env.filters["bytes_human"] = _filter_bytes
-    templates.env.filters["json_pretty"] = lambda v: json.dumps(v, indent=2, ensure_ascii=False, default=str)
+    templates.env.filters["json_pretty"] = lambda v: json.dumps(
+        v, indent=2, ensure_ascii=False, default=str
+    )
     templates.env.filters["since"] = _filter_since
     templates.env.filters["short_url"] = lambda v: (v or "").split("?", 1)[0]
-    templates.env.filters["truncate_chars"] = lambda v, n=80: (str(v)[:n] + "...") if v and len(str(v)) > n else (str(v) if v else "")
+    templates.env.filters["truncate_chars"] = lambda v, n=80: (
+        (str(v)[:n] + "...") if v and len(str(v)) > n else (str(v) if v else "")
+    )
 
     # ── pages ─────────────────────────────────────────────────────────
 
@@ -67,40 +100,84 @@ def build_app(root: Path | None = None) -> FastAPI:
                 "total": len(cassettes),
                 "root": str(root_path),
                 "version": __version__,
+                "live_enabled": True,
             },
         )
 
     @app.get("/cassette", response_class=HTMLResponse)
     async def cassette_detail(request: Request, path: str) -> Any:
         cas_path = _resolve_in_root(root_path, path)
-        if cas_path is None:
-            raise HTTPException(status_code=404, detail="cassette not found in root")
-        if not cas_path.exists():
-            raise HTTPException(status_code=404, detail="cassette file does not exist")
-        try:
-            cassette = load_cassette(cas_path)
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"could not parse cassette: {exc}") from exc
-
-        rel = cas_path.relative_to(root_path) if cas_path.is_relative_to(root_path) else cas_path
-        providers = sorted({i.request.provider for i in cassette.interactions})
-        models = sorted({_extract_model(i) for i in cassette.interactions if _extract_model(i)})
-
+        if cas_path is None or not cas_path.exists():
+            raise HTTPException(status_code=404, detail="cassette not found")
+        cassette = load_cassette(cas_path)
+        rel = str(cas_path.relative_to(root_path)) if cas_path.is_relative_to(root_path) else str(cas_path)
         return templates.TemplateResponse(
             request,
             "cassette.html",
             {
-                "rel_path": str(rel),
-                "abs_path": str(cas_path),
-                "cassette": cassette,
-                "providers": providers,
-                "models": models,
-                "size_bytes": cas_path.stat().st_size,
-                "modified_at": datetime.fromtimestamp(cas_path.stat().st_mtime),
-                "root": str(root_path),
+                **_cassette_context(cas_path, rel, cassette, root_path),
                 "version": __version__,
+                "live_enabled": True,
             },
         )
+
+    # ── HTMX partials (used by the live reload mechanism) ─────────────
+
+    @app.get("/partials/index_table", response_class=HTMLResponse)
+    async def partial_index_table(request: Request, search: str | None = None) -> Any:
+        cassettes = _scan_cassettes(root_path, search)
+        return templates.TemplateResponse(
+            request,
+            "_index_table.html",
+            {
+                "cassettes": cassettes,
+                "total": len(cassettes),
+                "search": search or "",
+            },
+        )
+
+    @app.get("/partials/cassette", response_class=HTMLResponse)
+    async def partial_cassette(request: Request, path: str) -> Any:
+        cas_path = _resolve_in_root(root_path, path)
+        if cas_path is None or not cas_path.exists():
+            return HTMLResponse(
+                '<div class="banner-warn">cassette removed since you opened it</div>',
+                status_code=200,
+            )
+        cassette = load_cassette(cas_path)
+        rel = str(cas_path.relative_to(root_path)) if cas_path.is_relative_to(root_path) else str(cas_path)
+        return templates.TemplateResponse(
+            request,
+            "_cassette_body.html",
+            _cassette_context(cas_path, rel, cassette, root_path),
+        )
+
+    # ── SSE: live file-change stream ─────────────────────────────────
+
+    @app.get("/events")
+    async def events(request: Request) -> EventSourceResponse:
+        q = watcher.subscribe()
+
+        async def event_source():
+            try:
+                yield {"event": "connected", "data": json.dumps({"watching": str(root_path)})}
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    try:
+                        event = await asyncio.wait_for(q.get(), timeout=15.0)
+                    except TimeoutError:
+                        # Periodic ping keeps proxies / browsers from dropping the conn
+                        yield {"event": "ping", "data": "{}"}
+                        continue
+                    yield {
+                        "event": event.get("type", "update"),
+                        "data": json.dumps(event),
+                    }
+            finally:
+                watcher.unsubscribe(q)
+
+        return EventSourceResponse(event_source())
 
     # ── JSON API ──────────────────────────────────────────────────────
 
@@ -151,7 +228,16 @@ def build_app(root: Path | None = None) -> FastAPI:
 
     @app.get("/healthz")
     async def healthz() -> dict[str, Any]:
-        return {"ok": True, "version": __version__, "root": str(root_path)}
+        return {
+            "ok": True,
+            "version": __version__,
+            "root": str(root_path),
+            "watcher": {
+                "running": watcher._task is not None,
+                "subscribers": watcher.subscriber_count,
+                "events_broadcast": watcher.events_broadcast,
+            },
+        }
 
     @app.get("/robots.txt", response_class=PlainTextResponse)
     async def robots() -> str:
@@ -165,8 +251,24 @@ def build_app(root: Path | None = None) -> FastAPI:
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _cassette_context(cas_path: Path, rel: str, cassette: CassetteFile, root: Path) -> dict[str, Any]:
+    providers = sorted({i.request.provider for i in cassette.interactions})
+    models = sorted({_extract_model(i) for i in cassette.interactions if _extract_model(i)})
+    return {
+        "rel_path": rel,
+        "abs_path": str(cas_path),
+        "cassette": cassette,
+        "providers": providers,
+        "models": models,
+        "size_bytes": cas_path.stat().st_size if cas_path.exists() else 0,
+        "modified_at": datetime.fromtimestamp(cas_path.stat().st_mtime)
+            if cas_path.exists()
+            else datetime.now(),
+        "root": str(root),
+    }
+
+
 def _scan_cassettes(root: Path, search: str | None) -> list[dict[str, Any]]:
-    """Walk `root` for *.yaml files that look like cassettes."""
     results: list[dict[str, Any]] = []
     for path in sorted(root.rglob("*.yaml")):
         if not _looks_like_cassette_path(path):
@@ -175,25 +277,22 @@ def _scan_cassettes(root: Path, search: str | None) -> list[dict[str, Any]]:
             cas = load_cassette(path)
         except Exception:
             continue
-        if not _cassette_has_interactions_or_is_empty(cas):
-            continue
         rel = str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
         providers = sorted({i.request.provider for i in cas.interactions})
-
         if search:
             haystack = (rel + " " + " ".join(providers)).lower()
             if search.lower() not in haystack:
                 continue
-
-        results.append({
-            "rel": rel,
-            "abs": str(path),
-            "interactions": len(cas.interactions),
-            "providers": providers,
-            "size": path.stat().st_size,
-            "modified": datetime.fromtimestamp(path.stat().st_mtime),
-        })
-    # Newest-modified first
+        with contextlib.suppress(OSError):
+            stat = path.stat()
+            results.append({
+                "rel": rel,
+                "abs": str(path),
+                "interactions": len(cas.interactions),
+                "providers": providers,
+                "size": stat.st_size,
+                "modified": datetime.fromtimestamp(stat.st_mtime),
+            })
     results.sort(key=lambda c: c["modified"], reverse=True)
     return results
 
@@ -205,15 +304,7 @@ def _looks_like_cassette_path(path: Path) -> bool:
     return path.stem.startswith("test_")
 
 
-def _cassette_has_interactions_or_is_empty(cas: CassetteFile) -> bool:
-    """Allow empty cassettes (just created) AND any with at least one entry.
-    Filters out arbitrary YAML files that happen to live under tests/."""
-    return True  # already validated by load_cassette schema
-
-
 def _resolve_in_root(root: Path, path: str) -> Path | None:
-    """Resolve a user-supplied path safely against root. Returns None if the
-    path would escape the root directory (basic path traversal guard)."""
     if path.startswith(("/", "\\")) or ".." in Path(path).parts:
         return None
     candidate = (root / path).resolve()
@@ -253,11 +344,7 @@ def _filter_bytes(value: int | None) -> str:
 
 def _filter_since(value: datetime | str) -> str:
     from datetime import timezone
-    dt = (
-        datetime.fromisoformat(value)
-        if isinstance(value, str)
-        else value
-    )
+    dt = datetime.fromisoformat(value) if isinstance(value, str) else value
     now = datetime.now() if dt.tzinfo is None else datetime.now(timezone.utc)
     secs = max(0, int((now - dt).total_seconds()))
     if secs < 60:

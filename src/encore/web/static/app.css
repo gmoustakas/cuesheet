@@ -1,4 +1,4 @@
-/* encore web — same dark + ochre brand as agentlog. Consistent identity. */
+/* encore web. Dark + ochre brand. */
 
 :root {
   --bg:          #07080c;
@@ -61,9 +61,72 @@ a:hover { color: var(--fg); }
 }
 .brand { display: flex; align-items: baseline; gap: 14px; }
 .brand-link { display: inline-flex; align-items: baseline; gap: 8px; color: var(--fg); }
-.brand-mark { color: var(--accent); font-size: 22px; line-height: 1; font-weight: 700; }
+.brand-mark {
+  color: var(--accent);
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 600;
+  /* The 𝄇 mark is a music repeat-sign; nudge baseline a touch for alignment */
+  position: relative;
+  top: 1px;
+}
 .brand-name { font-weight: 600; letter-spacing: -0.01em; }
 .brand-version { font-family: var(--mono); color: var(--fg-subtle); font-size: 11px; }
+
+/* live pill in header */
+.live-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.22em;
+  padding: 3px 8px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+.live-pill .live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+.live-pill.stale {
+  color: var(--fg-subtle);
+  border-color: var(--border);
+  background: transparent;
+}
+.live-pill.stale .live-dot {
+  background: var(--fg-subtle);
+  animation: none;
+}
+.live-pill.flash {
+  background: var(--accent);
+  color: #0a0a10;
+  border-color: var(--accent);
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+/* HTMX swap feedback - subtle highlight on the swapped region */
+[hx-swap]:not([hx-swap=""]).htmx-settling {
+  animation: settle-flash 0.6s ease;
+}
+@keyframes settle-flash {
+  0%   { background-color: var(--accent-soft); }
+  100% { background-color: transparent; }
+}
+
+/* small inline warning banner used by /partials/cassette on file removal */
+.banner-warn {
+  padding: 12px 16px;
+  border: 1px solid var(--red);
+  background: rgba(255, 94, 126, 0.08);
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: 12px;
+  margin: 12px 0;
+}
 .header-nav { display: flex; gap: 22px; }
 .nav-link { color: var(--fg-muted); font-family: var(--mono); font-size: 12px; }
 .nav-link:hover { color: var(--accent); }
@@ -77,6 +140,12 @@ a:hover { color: var(--fg); }
   letter-spacing: 0.05em;
 }
 .footer-mono { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.footer-link {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent-line);
+}
+.footer-link:hover { border-bottom-color: var(--accent); }
 
 /* ── page header ───────────────────────────────────────────────────── */
 .page-eyebrow {

@@ -4,6 +4,7 @@
   encore inspect <path>         # render a cassette in the terminal
   encore stats                  # aggregate cost / interaction counts
   encore scrub <path>           # re-apply scrubbers in place
+  encore web                    # serve the local dashboard
 """
 from __future__ import annotations
 
@@ -49,7 +50,7 @@ def cmd_list(root: Path) -> None:
     for f in files:
         try:
             cas = load_cassette(f)
-            providers = sorted({i.request.provider for i in cas.interactions}) or ["—"]
+            providers = sorted({i.request.provider for i in cas.interactions}) or ["-"]
             size_kb = f.stat().st_size / 1024
             table.add_row(
                 str(f.relative_to(root)),
@@ -58,7 +59,7 @@ def cmd_list(root: Path) -> None:
                 f"{size_kb:.1f}KB",
             )
         except Exception as exc:
-            table.add_row(str(f.relative_to(root)), "?", f"[red]error: {exc}[/red]", "—")
+            table.add_row(str(f.relative_to(root)), "?", f"[red]error: {exc}[/red]", "-")
     console.print(table)
 
 
@@ -77,7 +78,7 @@ def cmd_inspect(path: Path, limit: int) -> None:
         req = interaction.request
         resp = interaction.response
         provider = req.provider
-        model = (req.body or {}).get("model", "—") if isinstance(req.body, dict) else "—"
+        model = (req.body or {}).get("model", "-") if isinstance(req.body, dict) else "-"
         console.print(
             f"[yellow]#{idx + 1:02d}[/yellow]  "
             f"[cyan]{req.method}[/cyan] {escape(_short_url(req.url))}  "
@@ -148,6 +149,55 @@ def cmd_scrub(path: Path) -> None:
             console.print(f"[green]✓[/green] {f}")
         except Exception as exc:
             console.print(f"[red]✗[/red] {f}: {exc}")
+
+
+@main.command("web")
+@click.option("--root", default=".", type=click.Path(exists=True, file_okay=False, path_type=Path),
+              show_default=True, help="Directory to scan for cassettes.")
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8095, show_default=True, type=int)
+@click.option("--no-open", is_flag=True, default=False, help="Don't auto-open a browser.")
+@click.option("--reload", is_flag=True, default=False, help="Reload on code changes (dev only).")
+def cmd_web(root: Path, host: str, port: int, no_open: bool, reload: bool) -> None:
+    """Launch the local web dashboard (requires the [web] extra)."""
+    try:
+        import uvicorn
+    except ImportError as e:
+        console.print(
+            "[red]encore[web] is not installed.[/red]\n"
+            "  [dim]pip install 'encore[web]'[/dim]"
+        )
+        raise click.exceptions.Exit(1) from e
+
+    root = root.resolve()
+    url = f"http://{host}:{port}"
+    console.print(f"[bold]encore web[/bold]  [dim]{url}[/dim]  [yellow]watching[/yellow] {root}")
+
+    if not no_open:
+        import contextlib
+        import threading
+        import webbrowser
+
+        def open_browser() -> None:
+            import time
+            time.sleep(0.6)
+            with contextlib.suppress(Exception):
+                webbrowser.open(url)
+
+        threading.Thread(target=open_browser, daemon=True).start()
+
+    # We pass the root via env var so the factory in encore.web.app can read it.
+    import os
+    os.environ["ENCORE_WEB_ROOT"] = str(root)
+
+    uvicorn.run(
+        "encore.web.app:_factory",
+        factory=True,
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="warning",
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────

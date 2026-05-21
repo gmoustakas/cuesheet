@@ -12,14 +12,18 @@
   <header class="app-header">
     <div class="brand">
       <a href="/" class="brand-link">
-        <span class="brand-mark">♪</span>
+        <span class="brand-mark" aria-hidden="true">𝄇</span>
         <span class="brand-name">encore</span>
       </a>
       <span class="brand-version">v{{ version }}</span>
+      {% if live_enabled %}
+        <span class="live-pill" id="live-indicator" title="Watching the filesystem for cassette changes">
+          <span class="live-dot"></span>live
+        </span>
+      {% endif %}
     </div>
     <nav class="header-nav">
-      <a href="/api/docs" class="nav-link">api</a>
-      <a href="https://github.com/gmoustakas/encore" class="nav-link">github ↗</a>
+      <a href="https://github.com/gmoustakas/encore" class="nav-link" rel="noopener" target="_blank">github ↗</a>
     </nav>
   </header>
 
@@ -29,7 +33,46 @@
 
   <footer class="app-footer">
     <span class="footer-mono">{{ root }}</span>
-    <span class="footer-mono">encore · replay LLM API calls in tests · local</span>
+    <span class="footer-mono">
+      encore · local · built by
+      <a href="https://www.georgemou.gr/" rel="noopener" target="_blank" class="footer-link">george moustakas</a>
+    </span>
   </footer>
+
+  {% if live_enabled %}
+  <script>
+    // Live file-change listener. SSE pushes events; we refresh the relevant
+    // section without a full page reload.
+    (function() {
+      const es = new EventSource("/events");
+      const indicator = document.getElementById("live-indicator");
+
+      function flash() {
+        if (!indicator) return;
+        indicator.classList.add("flash");
+        setTimeout(() => indicator.classList.remove("flash"), 700);
+      }
+
+      es.addEventListener("connected", () => {
+        if (indicator) indicator.classList.remove("stale");
+      });
+
+      es.addEventListener("ping", () => {
+        // heartbeat
+      });
+
+      es.addEventListener("cassette_changed", (e) => {
+        flash();
+        const data = JSON.parse(e.data);
+        // Tell every htmx-listening element to refresh
+        window.dispatchEvent(new CustomEvent("encore:cassette_changed", { detail: data }));
+      });
+
+      es.onerror = () => {
+        if (indicator) indicator.classList.add("stale");
+      };
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>
