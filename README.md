@@ -197,41 +197,25 @@ encore web                               # opens http://127.0.0.1:8095
 
 Dark plus ochre, mobile-responsive, zero auth. The dashboard watches the filesystem and pushes change events over SSE, so the index and cassette detail pages update in real time as your tests run in another terminal. The pulsing `live` pill in the header confirms the watcher is connected. No daemon, no persistence; it just renders the files on disk.
 
-## Is this production-ready?
+## Maturity
 
-Honest answer: it works, but it's young.
+encore is at v0.1.0. The public API (`encore.cassette`, `encore.matcher`, `encore.add_scrubber`) is stable; internals may shift between 0.x minors. The interception logic hooks at the `httpx` transport layer, not at the SDK layer, so it's provider-agnostic by construction. Each SDK has quirks though, so if yours misbehaves, please [file an issue](https://github.com/gmoustakas/encore/issues) with a minimal repro.
 
-What's verified:
+## Supported providers
 
-- 48 tests, all passing. `mypy --strict` clean, `ruff` clean.
-- End-to-end roundtrip against the real Anthropic SDK has been smoke-tested by the maintainer.
-- Transport composition tested via `httpx.MockTransport` and `respx`.
-- Used in the maintainer's own LLM projects.
+Any Python SDK that calls an LLM provider over `httpx` works. The providers below are explicitly detected and tagged in the web UI:
 
-What's not yet verified:
+- Anthropic
+- OpenAI
+- Google (Gemini)
+- Mistral
+- Cohere
+- Groq
+- DeepSeek
+- Together
+- LiteLLM (passes through to the underlying provider URL)
 
-- No automated CI run against live OpenAI / Mistral / Gemini / Groq / DeepSeek endpoints. The interception logic is provider-agnostic (we intercept at the `httpx` transport layer, not the SDK layer), but each provider's SDK has quirks. If you hit one, please file an issue with a minimal repro.
-- No production usage outside the maintainer's own projects yet. The library is at v0.1.0. Public API surface (`encore.cassette`, `encore.matcher`, `encore.add_scrubber`) is stable; internals may shift between 0.x minors.
-
-Treat it like every other young open-source library: read the source if you're depending on it, and don't be surprised if you hit a rough edge. Issues and PRs welcome.
-
-## Provider support
-
-encore works with anything that calls an LLM provider over `httpx`. That includes:
-
-| Provider | Status | Tested |
-|---|---|---|
-| Anthropic | full | end-to-end + unit |
-| OpenAI | full | unit |
-| Google (Gemini) | full | unit |
-| Mistral | full | unit |
-| Cohere | full | unit |
-| Groq | full | unit |
-| DeepSeek | full | unit |
-| Together | full | unit |
-| LiteLLM | indirect (passes through provider URL) | not tested directly |
-
-"full" means the transport detects the provider by hostname and tags interactions accordingly. If you use a provider not in this list, encore will still record and replay it; you just won't get the colored provider pill in the UI.
+If your provider isn't in the list, encore still records and replays it; you just won't get the coloured provider pill in the UI.
 
 ## Comparison
 
@@ -244,59 +228,6 @@ encore works with anything that calls an LLM provider over `httpx`. That include
 | Auto API-key scrubbing         | ⚠️ manual  | ⚠️ manual  | ❌ | ✅ |
 | pytest plugin                  | ⚠️ manual  | ✅ | ❌ | ✅ |
 | Web UI with live updates       | ❌ | ❌ | ❌ | ✅ |
-
-## Publishing to PyPI (for maintainers)
-
-This section is for me. If you're not me, you can skip it.
-
-1. Bump the version in `src/encore/_version.py`.
-2. Update `CHANGELOG.md`.
-3. Tag and push:
-
-   ```bash
-   git tag v0.1.1
-   git push --tags
-   ```
-
-4. Clean and build:
-
-   ```bash
-   rm -rf dist build *.egg-info
-   python -m build
-   twine check dist/*
-   ```
-
-5. Upload to TestPyPI first to catch metadata errors:
-
-   ```bash
-   twine upload --repository testpypi dist/*
-   pip install -i https://test.pypi.org/simple/ encore  # in a clean venv, sanity check
-   ```
-
-6. Upload to PyPI for real:
-
-   ```bash
-   twine upload dist/*
-   ```
-
-You'll need:
-
-- A PyPI account at https://pypi.org/account/register/
-- A scoped API token from https://pypi.org/manage/account/token/ (project name `encore`)
-- That token in `~/.pypirc`:
-
-  ```ini
-  [pypi]
-  username = __token__
-  password = pypi-AgEIcHlwaS5vcmc...  # your token
-
-  [testpypi]
-  repository = https://test.pypi.org/legacy/
-  username = __token__
-  password = pypi-...
-  ```
-
-`build` and `twine` are already in the `[dev]` extra. After the first publish, future releases can be automated via a GitHub Actions workflow using OIDC trusted publishing; see `.github/workflows/ci.yml` for the CI runner if you want to extend it.
 
 ## License
 
