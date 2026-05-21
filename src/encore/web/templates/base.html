@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}encore{% endblock %}</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/favicon.png">
   <link rel="stylesheet" href="/static/app.css">
   <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.7/dist/cdn.min.js" defer></script>
@@ -12,7 +14,7 @@
   <header class="app-header">
     <div class="brand">
       <a href="/" class="brand-link">
-        <span class="brand-mark" aria-hidden="true">𝄇</span>
+        <img src="/static/brand.png" alt="" class="brand-mark" width="32" height="32">
         <span class="brand-name">encore</span>
       </a>
       <span class="brand-version">v{{ version }}</span>

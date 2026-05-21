@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/logo-256.png" alt="encore" width="180" height="180">
+
 # encore
 
 **Record once. Replay forever. Test LLM-calling code without burning the API.**
