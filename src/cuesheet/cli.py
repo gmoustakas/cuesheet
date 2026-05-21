@@ -96,7 +96,9 @@ def cmd_inspect(path: Path, limit: int) -> None:
 @click.option("--root", default=".", type=click.Path(exists=True, file_okay=False, path_type=Path),
               show_default=True)
 def cmd_stats(root: Path) -> None:
-    """Aggregate stats across all cassettes under a root."""
+    """Aggregate stats (interactions, tokens, cost estimate) across cassettes."""
+    from cuesheet.pricing import aggregate
+
     files = list(_find_cassettes(root))
     if not files:
         console.print(f"[dim]No cassettes under {root}.[/dim]")
@@ -106,6 +108,7 @@ def cmd_stats(root: Path) -> None:
     by_provider: dict[str, int] = {}
     streaming_count = 0
     total_bytes = 0
+    all_interactions = []
 
     for f in files:
         try:
@@ -118,6 +121,9 @@ def cmd_stats(root: Path) -> None:
             by_provider[i.request.provider] = by_provider.get(i.request.provider, 0) + 1
             if i.response.is_streaming:
                 streaming_count += 1
+        all_interactions.extend(cas.interactions)
+
+    usage = aggregate(all_interactions)
 
     table = Table(show_header=False, box=None)
     table.add_column(style="dim", width=22)
@@ -126,12 +132,40 @@ def cmd_stats(root: Path) -> None:
     table.add_row("Interactions", f"{total_interactions:,}")
     table.add_row("Streaming responses", f"{streaming_count:,}")
     table.add_row("Disk size", f"{total_bytes / 1024:.1f}KB")
+    table.add_row("Input tokens", f"{usage['input_tokens']:,}")
+    table.add_row("Output tokens", f"{usage['output_tokens']:,}")
+    table.add_row("Total tokens", f"{usage['total_tokens']:,}")
+    table.add_row("Estimated cost", f"[yellow]${usage['cost_usd']:.4f}[/yellow]" if usage['cost_usd'] else "[dim]$0.0000[/dim]")
     console.print(table)
 
     if by_provider:
         console.print("\n[bold]By provider:[/bold]")
         for prov, count in sorted(by_provider.items(), key=lambda kv: kv[1], reverse=True):
             console.print(f"  [cyan]{prov}[/cyan]  [dim]{count}[/dim]")
+
+    if usage["by_model"]:
+        console.print("\n[bold]By model:[/bold]")
+        model_table = Table(box=None, header_style="dim")
+        model_table.add_column("Model", style="cyan")
+        model_table.add_column("Calls", justify="right")
+        model_table.add_column("Input", justify="right", style="dim")
+        model_table.add_column("Output", justify="right", style="dim")
+        model_table.add_column("Cost (est.)", justify="right")
+        sorted_models = sorted(usage["by_model"].items(), key=lambda kv: kv[1]["cost"], reverse=True)
+        for model, b in sorted_models:
+            cost_cell = f"[yellow]${b['cost']:.4f}[/yellow]" if b["priced"] else "[dim]n/a[/dim]"
+            model_table.add_row(
+                model, f"{b['count']:,}",
+                f"{b['input']:,}", f"{b['output']:,}", cost_cell,
+            )
+        console.print(model_table)
+
+    if usage["unpriced_models"]:
+        console.print(
+            f"\n[dim]Note: no built-in price for "
+            f"{', '.join(usage['unpriced_models'])}. "
+            f"Costs above are partial.[/dim]"
+        )
 
 
 @main.command("scrub")
@@ -198,6 +232,190 @@ def cmd_web(root: Path, host: str, port: int, no_open: bool, reload: bool) -> No
         reload=reload,
         log_level="warning",
     )
+
+
+@main.command("diff")
+@click.argument("a", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("b", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--limit", "-n", default=8, show_default=True,
+              help="Maximum diff lines per interaction.")
+def cmd_diff(a: Path, b: Path, limit: int) -> None:
+    """Semantic diff between two cassettes.
+
+    Pairs interactions across A and B by (method, url, model, messages), then
+    reports added, removed, or response-changed interactions. Useful when
+    refactoring a prompt and you want to see exactly what changed in the
+    recorded output before committing.
+    """
+    import difflib
+
+    from cuesheet.matchers import default_matcher
+
+    cas_a = load_cassette(a)
+    cas_b = load_cassette(b)
+    match = default_matcher("method", "url", "model", "messages")
+
+    used_b: set[int] = set()
+    changed: list[tuple[int, int]] = []  # (idx_a, idx_b)
+    only_in_a: list[int] = []
+
+    for ia, ix_a in enumerate(cas_a.interactions):
+        for ib, ix_b in enumerate(cas_b.interactions):
+            if ib in used_b:
+                continue
+            if match(ix_a.request, ix_b.request):
+                used_b.add(ib)
+                changed.append((ia, ib))
+                break
+        else:
+            only_in_a.append(ia)
+
+    only_in_b = [i for i in range(len(cas_b.interactions)) if i not in used_b]
+
+    console.print(f"[bold]{a}[/bold]  ↔  [bold]{b}[/bold]\n")
+    summary = Table(show_header=False, box=None)
+    summary.add_column(style="dim")
+    summary.add_column()
+    summary.add_row("Matched pairs", f"{len(changed)}")
+    summary.add_row("Only in A", f"[red]{len(only_in_a)}[/red]")
+    summary.add_row("Only in B", f"[green]{len(only_in_b)}[/green]")
+    console.print(summary)
+
+    response_changes = 0
+    for ia, ib in changed:
+        body_a = cas_a.interactions[ia].response.body
+        body_b = cas_b.interactions[ib].response.body
+        if body_a == body_b:
+            continue
+        response_changes += 1
+        console.print(
+            f"\n[yellow]~ pair #{ia + 1} ↔ #{ib + 1}[/yellow]  "
+            f"[dim]({_short_url(cas_a.interactions[ia].request.url)})[/dim]"
+        )
+        text_a = _pretty_json(body_a)
+        text_b = _pretty_json(body_b)
+        diff = list(difflib.unified_diff(
+            text_a.splitlines(), text_b.splitlines(),
+            fromfile="A.response", tofile="B.response",
+            lineterm="", n=2,
+        ))
+        for line in diff[:limit + 3]:
+            if line.startswith("+") and not line.startswith("+++"):
+                console.print(f"  [green]{escape(line)}[/green]")
+            elif line.startswith("-") and not line.startswith("---"):
+                console.print(f"  [red]{escape(line)}[/red]")
+            elif line.startswith("@@"):
+                console.print(f"  [cyan]{escape(line)}[/cyan]")
+            else:
+                console.print(f"  [dim]{escape(line)}[/dim]")
+        if len(diff) > limit + 3:
+            console.print(f"  [dim]... ({len(diff) - limit - 3} more lines, raise --limit to see them)[/dim]")
+
+    for ia in only_in_a:
+        req = cas_a.interactions[ia].request
+        console.print(
+            f"\n[red]- removed[/red]  #{ia + 1}  "
+            f"[dim]{req.method} {_short_url(req.url)}[/dim]"
+        )
+    for ib in only_in_b:
+        req = cas_b.interactions[ib].request
+        console.print(
+            f"\n[green]+ added[/green]    #{ib + 1}  "
+            f"[dim]{req.method} {_short_url(req.url)}[/dim]"
+        )
+
+    if not response_changes and not only_in_a and not only_in_b:
+        console.print("\n[dim]No differences.[/dim]")
+
+
+def _pretty_json(value: object) -> str:
+    import json
+    try:
+        return json.dumps(value, indent=2, ensure_ascii=False, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        return str(value)
+
+
+@main.command("init")
+@click.option("--target", default=".", type=click.Path(file_okay=False, path_type=Path),
+              show_default=True, help="Directory to scaffold into.")
+@click.option("--force", is_flag=True, default=False,
+              help="Overwrite files that already exist.")
+def cmd_init(target: Path, force: bool) -> None:
+    """Scaffold a tests/cassettes/ tree and a starter conftest into the current
+    project. Idempotent: existing files are left alone unless --force is set."""
+    target = target.resolve()
+    cassettes_dir = target / "tests" / "cassettes"
+    conftest_path = target / "tests" / "conftest.py"
+    example_path = target / "tests" / "test_cuesheet_example.py"
+
+    created: list[str] = []
+    skipped: list[str] = []
+
+    cassettes_dir.mkdir(parents=True, exist_ok=True)
+    keep = cassettes_dir / ".gitkeep"
+    if not keep.exists():
+        keep.touch()
+        created.append(str(keep.relative_to(target)))
+
+    if conftest_path.exists() and not force:
+        skipped.append(str(conftest_path.relative_to(target)))
+    else:
+        conftest_path.parent.mkdir(parents=True, exist_ok=True)
+        conftest_path.write_text(_CONFTEST_SNIPPET, encoding="utf-8")
+        created.append(str(conftest_path.relative_to(target)))
+
+    if example_path.exists() and not force:
+        skipped.append(str(example_path.relative_to(target)))
+    else:
+        example_path.parent.mkdir(parents=True, exist_ok=True)
+        example_path.write_text(_EXAMPLE_SNIPPET, encoding="utf-8")
+        created.append(str(example_path.relative_to(target)))
+
+    for path in created:
+        console.print(f"[green]+ created[/green]  {path}")
+    for path in skipped:
+        console.print(f"[dim]· skipped (exists)[/dim]  {path}")
+
+    console.print(
+        "\nNext step: write a test that calls your LLM SDK, "
+        "wrap it with [cyan]@cuesheet.cassette(...)[/cyan], and run pytest. "
+        "The first run records; every run after replays."
+    )
+
+
+_CONFTEST_SNIPPET = '''"""pytest configuration.
+
+The `cuesheet_cassette` fixture auto-finds tests/cassettes/<test_name>.yaml
+and binds a session for the duration of the test. It is registered for you
+by cuesheet's pytest plugin; you can use it without importing anything.
+"""
+'''
+
+
+_EXAMPLE_SNIPPET = '''"""Example cuesheet test.
+
+First run: hits the real provider, saves the response to
+tests/cassettes/test_cuesheet_example.yaml.
+Every run after: replays from the YAML, no network calls.
+"""
+import cuesheet
+
+
+@cuesheet.cassette("tests/cassettes/test_cuesheet_example.yaml")
+def test_example():
+    # Replace this with your real LLM call. Example with Anthropic:
+    #
+    #   from anthropic import Anthropic
+    #   client = Anthropic()
+    #   response = client.messages.create(
+    #       model="claude-sonnet-4-5",
+    #       max_tokens=100,
+    #       messages=[{"role": "user", "content": "Say hello."}],
+    #   )
+    #   assert response.content[0].text
+    assert True
+'''
 
 
 # ──────────────────────────────────────────────────────────────────────

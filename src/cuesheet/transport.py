@@ -87,7 +87,12 @@ class CuesheetTransport(httpx.BaseTransport):
         decision = session.decide(recorded_req)
 
         if decision.action == "fail":
-            raise CassetteMissingMatch(decision.reason or "no matching interaction")
+            raise CassetteMissingMatch(
+                decision.reason or "no matching interaction",
+                cassette_path=session.path,
+                request=recorded_req,
+                closest=decision.closest,
+            )
         if decision.action == "replay":
             assert decision.interaction is not None
             return _synthesize_response(decision.interaction)
@@ -119,7 +124,12 @@ class CuesheetAsyncTransport(httpx.AsyncBaseTransport):
         decision = session.decide(recorded_req)
 
         if decision.action == "fail":
-            raise CassetteMissingMatch(decision.reason or "no matching interaction")
+            raise CassetteMissingMatch(
+                decision.reason or "no matching interaction",
+                cassette_path=session.path,
+                request=recorded_req,
+                closest=decision.closest,
+            )
         if decision.action == "replay":
             assert decision.interaction is not None
             return _synthesize_response(decision.interaction)

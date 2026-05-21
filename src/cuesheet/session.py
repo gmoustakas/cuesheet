@@ -28,7 +28,13 @@ from cuesheet.cassette import (
     load_cassette,
     save_cassette,
 )
-from cuesheet.matchers import Matcher, default_matcher, find_match
+from cuesheet.matchers import (
+    Matcher,
+    MatchReport,
+    default_matcher,
+    find_closest_miss,
+    find_match,
+)
 from cuesheet.modes import Mode
 
 
@@ -37,7 +43,30 @@ class CuesheetError(Exception):
 
 
 class CassetteMissingMatch(CuesheetError):
-    """replay_only and no matching interaction in the cassette."""
+    """replay_only and no matching interaction in the cassette.
+
+    Carries enough context to build a useful CI failure: which cassette,
+    the live request, and the closest near-miss (if any) with a
+    criterion-by-criterion breakdown of what diverged.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        cassette_path: Path | None = None,
+        request: RecordedRequest | None = None,
+        closest: MatchReport | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.cassette_path = cassette_path
+        self.request = request
+        self.closest = closest
+
+    def diagnostic(self) -> str:
+        """Pretty multi-line diff suitable for printing in a test failure."""
+        return _format_miss_diagnostic(self)
 
 
 class CassetteWriteError(CuesheetError):
@@ -51,6 +80,7 @@ class Decision:
     action: str  # "replay" | "record" | "bypass" | "fail"
     interaction: Interaction | None = None
     reason: str | None = None
+    closest: MatchReport | None = None
 
 
 @dataclass
@@ -94,6 +124,7 @@ class Session:
                     f"no matching interaction in {self.path} (mode=replay_only). "
                     f"Re-run with mode='record_new' to capture this request."
                 ),
+                closest=find_closest_miss(self.cassette.interactions, request),
             )
 
         if self.mode.can_record():
@@ -156,3 +187,65 @@ def activate(session: Session) -> Iterator[Session]:
         if session.recorded_count > 0:
             session.flush()
         _current.reset(token)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Replay-miss diagnostic
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _format_miss_diagnostic(exc: CassetteMissingMatch) -> str:
+    """Multi-line message that points at the near-miss and shows a unified
+    diff of the diverging request bodies. Designed to be readable inside a
+    test runner's traceback panel."""
+    import difflib
+
+    lines: list[str] = []
+    lines.append(exc.message)
+    if exc.cassette_path:
+        lines.append(f"  cassette: {exc.cassette_path}")
+    if exc.request is not None:
+        lines.append(f"  request:  {exc.request.method} {exc.request.url}")
+    if exc.closest is None:
+        lines.append("  cassette has no interactions to compare against.")
+        return "\n".join(lines)
+
+    lines.append(
+        f"  closest match: scored {exc.closest.score}/"
+        f"{exc.closest.score + len(exc.closest.failed)} criteria"
+    )
+    if exc.closest.matched:
+        lines.append(f"    matched: {', '.join(exc.closest.matched)}")
+    if exc.closest.failed:
+        lines.append(f"    failed:  {', '.join(exc.closest.failed)}")
+
+    # Build unified diff of the two request bodies. We pretty-print JSON
+    # bodies first; raw bodies fall back to their string form.
+    if exc.request is not None:
+        candidate_body = _body_for_diff(exc.closest.candidate.request)
+        live_body = _body_for_diff(exc.request)
+        if candidate_body != live_body:
+            diff = list(
+                difflib.unified_diff(
+                    candidate_body.splitlines(),
+                    live_body.splitlines(),
+                    fromfile="cassette",
+                    tofile="request",
+                    lineterm="",
+                    n=2,
+                )
+            )
+            if diff:
+                lines.append("")
+                lines.append("  body diff:")
+                lines.extend("    " + d for d in diff)
+    return "\n".join(lines)
+
+
+def _body_for_diff(req: RecordedRequest) -> str:
+    import json
+    if isinstance(req.body, dict | list):
+        return json.dumps(req.body, indent=2, ensure_ascii=False, sort_keys=True, default=str)
+    if req.body is not None:
+        return str(req.body)
+    return req.body_raw or ""

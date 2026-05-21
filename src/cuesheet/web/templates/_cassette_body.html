@@ -105,11 +105,41 @@
               </div>
             {% endif %}
             {% if resp.is_streaming and resp.body_stream %}
-              <details class="stream">
+              <details class="stream"
+                       x-data="{ mode: 'decoded' }">
                 <summary>stream chunks ({{ resp.body_stream | length }})</summary>
-                {% for chunk in resp.body_stream %}
-                  <pre class="stream-chunk">{{ chunk }}</pre>
-                {% endfor %}
+                <div class="stream-toggle">
+                  <button type="button"
+                          :class="mode === 'decoded' ? 'on' : ''"
+                          @click="mode = 'decoded'">decoded</button>
+                  <button type="button"
+                          :class="mode === 'raw' ? 'on' : ''"
+                          @click="mode = 'raw'">raw</button>
+                </div>
+                <div x-show="mode === 'raw'" x-cloak>
+                  {% for chunk in resp.body_stream %}
+                    <pre class="stream-chunk">{{ chunk }}</pre>
+                  {% endfor %}
+                </div>
+                <div x-show="mode === 'decoded'">
+                  {% for chunk in resp.body_stream %}
+                    {% set parsed = chunk | sse_parse %}
+                    {% if parsed.event or parsed.data %}
+                      <div class="stream-event">
+                        {% if parsed.event %}
+                          <span class="stream-event-name mono">{{ parsed.event }}</span>
+                        {% endif %}
+                        {% if parsed.data_pretty %}
+                          <pre class="stream-event-data">{{ parsed.data_pretty }}</pre>
+                        {% elif parsed.data %}
+                          <pre class="stream-event-data">{{ parsed.data }}</pre>
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      <pre class="stream-chunk">{{ chunk }}</pre>
+                    {% endif %}
+                  {% endfor %}
+                </div>
               </details>
             {% endif %}
             <details class="headers">

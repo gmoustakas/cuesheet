@@ -7,11 +7,27 @@ of small, composable boolean checks.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from cuesheet.cassette import Interaction, RecordedRequest
 
 Matcher = Callable[[RecordedRequest, RecordedRequest], bool]
+
+
+@dataclass
+class MatchReport:
+    """Why a candidate cassette interaction didn't match a live request.
+
+    Used to build helpful error messages when replay_only fails: instead of
+    "no match", we point at the closest near-miss and the specific criteria
+    that diverged.
+    """
+
+    candidate: Interaction
+    matched: tuple[str, ...]   # criteria the candidate satisfied
+    failed: tuple[str, ...]    # criteria that diverged
+    score: int                 # number of matched criteria (higher = closer)
 
 
 def match_method(a: RecordedRequest, b: RecordedRequest) -> bool:
@@ -110,6 +126,45 @@ def find_match(
         if matcher(interaction.request, request):
             return interaction
     return None
+
+
+def find_closest_miss(
+    interactions: list[Interaction],
+    request: RecordedRequest,
+    match_on: tuple[str, ...] = DEFAULT_MATCH_ON,
+) -> MatchReport | None:
+    """Find the recorded interaction that satisfies the most criteria.
+
+    Used to build a useful error message when `find_match` returns None.
+    Walks each named primitive (method, url, model, messages, tools,
+    max_tokens, temperature) and counts how many fired. The candidate with
+    the highest score wins; ties go to the earliest interaction.
+
+    Returns None only when the cassette is empty.
+    """
+    if not interactions:
+        return None
+    best: MatchReport | None = None
+    for interaction in interactions:
+        matched: list[str] = []
+        failed: list[str] = []
+        for name in match_on:
+            primitive = _NAMED_MATCHERS.get(name)
+            if primitive is None:
+                continue
+            if primitive(interaction.request, request):
+                matched.append(name)
+            else:
+                failed.append(name)
+        report = MatchReport(
+            candidate=interaction,
+            matched=tuple(matched),
+            failed=tuple(failed),
+            score=len(matched),
+        )
+        if best is None or report.score > best.score:
+            best = report
+    return best
 
 
 # ──────────────────────────────────────────────────────────────────────

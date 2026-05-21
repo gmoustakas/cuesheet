@@ -85,6 +85,7 @@ def build_app(root: Path | None = None) -> FastAPI:
     templates.env.filters["truncate_chars"] = lambda v, n=80: (
         (str(v)[:n] + "...") if v and len(str(v)) > n else (str(v) if v else "")
     )
+    templates.env.filters["sse_parse"] = _filter_sse_parse
 
     # ── pages ─────────────────────────────────────────────────────────
 
@@ -354,3 +355,34 @@ def _filter_since(value: datetime | str) -> str:
     if secs < 86_400:
         return f"{secs // 3600}h ago"
     return f"{secs // 86_400}d ago"
+
+
+def _filter_sse_parse(chunk: str) -> dict[str, Any]:
+    """Parse one SSE frame into {event, data, data_pretty}.
+
+    Streamed cassettes record raw frames like:
+        event: content_block_delta\n
+        data: {"type":"content_block_delta", ...}\n\n
+
+    We pull out the event name, the data payload, and a pretty-printed JSON
+    rendering of the payload (None if it isn't valid JSON). Multi-line data
+    is concatenated per the SSE spec.
+    """
+    if not isinstance(chunk, str):
+        return {"event": None, "data": None, "data_pretty": None}
+    event: str | None = None
+    data_lines: list[str] = []
+    for line in chunk.splitlines():
+        if line.startswith("event:"):
+            event = line[6:].strip() or None
+        elif line.startswith("data:"):
+            data_lines.append(line[5:].lstrip())
+    data = "\n".join(data_lines).strip() if data_lines else None
+    data_pretty: str | None = None
+    if data:
+        try:
+            parsed = json.loads(data)
+            data_pretty = json.dumps(parsed, indent=2, ensure_ascii=False)
+        except (ValueError, TypeError):
+            data_pretty = None
+    return {"event": event, "data": data, "data_pretty": data_pretty}
