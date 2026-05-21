@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/logo-256.png" alt="cuesheet" width="180" height="180">
+<img src="https://www.georgemou.gr/_next/image?url=%2Fprojects%2Fcuesheet%2Flogo-256.png&w=1080&q=75" alt="cuesheet" width="180" height="180">
 
 # cuesheet
 
@@ -49,18 +49,6 @@ def test_summarizer():
 ```
 
 That's the whole API. One decorator. One YAML file per test. Drop it in.
-
-## Screenshots
-
-The library ships with a local web UI for browsing what got recorded. Run `cuesheet web` and open `http://127.0.0.1:8095`.
-
-**Index.** Sortable table of every cassette under your working directory. Provider, interaction count, file size, last modified. Click any row.
-
-![cuesheet web - index page listing every cassette with provider and modified time](docs/screenshots/index.png)
-
-**Cassette detail.** Per-interaction inspector. Request and response side by side, JSON pretty-printed, headers collapsed by default, stream chunks expandable. The dashboard subscribes to filesystem events: rerun your tests in another terminal and this page updates live.
-
-![cuesheet web - cassette detail with request and response panes, JSON visible](docs/screenshots/cassette-detail.png)
 
 ## Features
 
